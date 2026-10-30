@@ -4,6 +4,30 @@
 # Authenticates to Rubrik Security Cloud, checks whether the Managed Volume
 # exists, creates it when required, and applies the environment-specific SLA.
 
+- name: Probe Rubrik token endpoint
+  ansible.builtin.uri:
+    url: "{{ rubrik_db_backup_api_url }}/client_token"
+    method: POST
+    body_format: json
+    body: {}
+    return_content: true
+    status_code:
+      - 400
+  register: rubrik_db_backup_token_probe
+  changed_when: false
+
+- name: Validate Rubrik token endpoint
+  ansible.builtin.assert:
+    that:
+      - rubrik_db_backup_token_probe.status | int == 400
+    fail_msg: >-
+      Rubrik token endpoint probe returned HTTP
+      {{ rubrik_db_backup_token_probe.status | default('unavailable') }}
+      instead of the expected HTTP 400.
+    success_msg: >-
+      Rubrik token endpoint is reachable and responded with the expected
+      HTTP 400 to an empty authentication request.
+
 - name: Obtain Rubrik API bearer token
   ansible.builtin.uri:
     url: "{{ rubrik_db_backup_api_url }}/client_token"
