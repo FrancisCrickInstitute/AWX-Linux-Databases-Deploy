@@ -1,0 +1,150 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Verifies the completed Rubrik PostgreSQL backup configuration.
+# Confirms the backup account, PostgreSQL role, Managed Volume mount,
+# repository, configuration file, cron schedule and backup log.
+
+- name: Check PostgreSQL backup operating-system account
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ rubrik_db_backup_user }}"
+
+- name: Verify PostgreSQL backup operating-system account
+  ansible.builtin.assert:
+    that:
+      - >-
+        rubrik_db_backup_user
+        in ansible_facts.getent_passwd
+    fail_msg: >-
+      PostgreSQL backup operating-system account
+      {{ rubrik_db_backup_user }} was not found.
+    success_msg: >-
+      PostgreSQL backup operating-system account
+      {{ rubrik_db_backup_user }} exists.
+
+- name: Check Rubrik Managed Volume mount
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --noheadings
+      - --output
+      - SOURCE,FSTYPE,TARGET
+      - "{{ rubrik_db_backup_mountpoint }}"
+  register: rubrik_db_backup_mount_check
+  changed_when: false
+
+- name: Verify Rubrik Managed Volume mount
+  ansible.builtin.assert:
+    that:
+      - rubrik_db_backup_mount_check.rc == 0
+      - "'nfs' in rubrik_db_backup_mount_check.stdout"
+      - >-
+        rubrik_db_backup_mountpoint
+        in rubrik_db_backup_mount_check.stdout
+    fail_msg: >-
+      Rubrik Managed Volume is not mounted correctly at
+      {{ rubrik_db_backup_mountpoint }}.
+    success_msg: >-
+      Rubrik Managed Volume is mounted at
+      {{ rubrik_db_backup_mountpoint }}.
+
+- name: Check Rubrik backup repository
+  ansible.builtin.stat:
+    path: "{{ rubrik_db_backup_repo_path }}/{{ rubrik_db_backup_script }}"
+  register: rubrik_db_backup_script_status
+
+- name: Verify Rubrik backup repository
+  ansible.builtin.assert:
+    that:
+      - rubrik_db_backup_script_status.stat.exists
+      - rubrik_db_backup_script_status.stat.isreg
+    fail_msg: >-
+      Rubrik backup script was not found at
+      {{ rubrik_db_backup_repo_path }}/{{ rubrik_db_backup_script }}.
+    success_msg: "Rubrik PostgreSQL backup script is present."
+
+- name: Check Rubrik backup configuration
+  ansible.builtin.stat:
+    path: "{{ rubrik_db_backup_config_path }}"
+  register: rubrik_db_backup_config_check
+
+- name: Verify Rubrik backup configuration
+  ansible.builtin.assert:
+    that:
+      - rubrik_db_backup_config_check.stat.exists
+      - rubrik_db_backup_config_check.stat.isreg
+    fail_msg: >-
+      Rubrik backup configuration file was not found at
+      {{ rubrik_db_backup_config_path }}.
+    success_msg: "Rubrik PostgreSQL backup configuration is present."
+
+- name: Check PostgreSQL backup database role
+  community.postgresql.postgresql_query:
+    login_db: postgres
+    login_user: postgres
+    login_unix_socket: /var/run/postgresql
+    query: >-
+      SELECT
+        rolname,
+        rolsuper,
+        rolreplication,
+        rolcanlogin
+      FROM pg_roles
+      WHERE rolname = %(role_name)s;
+    named_args:
+      role_name: "{{ rubrik_db_backup_user }}"
+  become: true
+  become_user: postgres
+  register: rubrik_db_backup_postgresql_role
+  changed_when: false
+
+- name: Verify PostgreSQL backup database role
+  ansible.builtin.assert:
+    that:
+      - rubrik_db_backup_postgresql_role.query_result | length == 1
+      - rubrik_db_backup_postgresql_role.query_result[0].rolcanlogin | bool
+      - rubrik_db_backup_postgresql_role.query_result[0].rolsuper | bool
+      - >-
+        rubrik_db_backup_postgresql_role
+        .query_result[0].rolreplication | bool
+    fail_msg: >-
+      PostgreSQL backup database role {{ rubrik_db_backup_user }}
+      is missing or does not have the required attributes.
+    success_msg: >-
+      PostgreSQL backup database role {{ rubrik_db_backup_user }}
+      is configured.
+
+- name: Read PostgreSQL backup cron entry
+  ansible.builtin.command:
+    argv:
+      - crontab
+      - -u
+      - "{{ rubrik_db_backup_user }}"
+      - -l
+  register: rubrik_db_backup_crontab
+  changed_when: false
+
+- name: Verify PostgreSQL backup cron entry
+  ansible.builtin.assert:
+    that:
+      - rubrik_db_backup_crontab.rc == 0
+      - rubrik_db_backup_script in rubrik_db_backup_crontab.stdout
+      - rubrik_db_backup_repo_path in rubrik_db_backup_crontab.stdout
+    fail_msg: >-
+      The PostgreSQL Rubrik backup cron entry is missing or incomplete.
+    success_msg: "The PostgreSQL Rubrik backup cron entry is present."
+
+- name: Check PostgreSQL backup log
+  ansible.builtin.stat:
+    path: "/home/{{ rubrik_db_backup_user }}/rubrik_backup.log"
+  register: rubrik_db_backup_log_status
+
+- name: Verify PostgreSQL backup log
+  ansible.builtin.assert:
+    that:
+      - rubrik_db_backup_log_status.stat.exists
+      - rubrik_db_backup_log_status.stat.isreg
+    fail_msg: >-
+      PostgreSQL backup log was not found for
+      {{ rubrik_db_backup_user }}.
+    success_msg: "The PostgreSQL Rubrik backup log is present."

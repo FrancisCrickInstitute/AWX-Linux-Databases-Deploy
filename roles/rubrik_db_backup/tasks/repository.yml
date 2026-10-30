@@ -1,0 +1,112 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Deploys and configures the Rubrik database backup repository.
+# Temporarily decrypts the Vault-protected GitHub deployment key, uses it
+# to clone or update the backup repository, and removes it afterwards.
+
+- name: Ensure root SSH directory exists
+  ansible.builtin.file:
+    path: /root/.ssh
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Deploy Rubrik backup repository
+  block:
+    - name: Deploy temporary GitHub deployment key
+      ansible.builtin.copy:
+        src: ansible_github_id_rsa
+        dest: /root/.ssh/rubrik_backup_deployment.key
+        owner: root
+        group: root
+        mode: "0600"
+        decrypt: true
+      no_log: true
+
+    - name: Clone or update Rubrik backup repository
+      ansible.builtin.git:
+        repo: "{{ rubrik_db_backup_repo_address }}"
+        dest: "{{ rubrik_db_backup_repo_path }}"
+        version: main
+        key_file: /root/.ssh/rubrik_backup_deployment.key
+        accept_hostkey: true
+        clone: true
+        update: true
+        force: false
+      register: rubrik_db_backup_repository_result
+
+  always:
+    - name: Remove temporary GitHub deployment key
+      ansible.builtin.file:
+        path: /root/.ssh/rubrik_backup_deployment.key
+        state: absent
+      no_log: true
+
+- name: Verify Rubrik backup configuration file exists
+  ansible.builtin.stat:
+    path: "{{ rubrik_db_backup_config_path }}"
+  register: rubrik_db_backup_config_status
+
+- name: Validate Rubrik backup configuration file
+  ansible.builtin.assert:
+    that:
+      - rubrik_db_backup_config_status.stat.exists
+      - rubrik_db_backup_config_status.stat.isreg
+    fail_msg: >-
+      Expected Rubrik backup configuration file was not found:
+      {{ rubrik_db_backup_config_path }}.
+
+- name: Configure Rubrik backup repository
+  ansible.builtin.lineinfile:
+    path: "{{ rubrik_db_backup_config_path }}"
+    regexp: "^{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+  loop:
+    - regexp: "data_server = "
+      line: 'data_server = "{{ rubrik_db_backup_data_server }}"'
+
+    - regexp: "backup_folder = "
+      line: 'backup_folder = "{{ rubrik_db_backup_mountpoint }}/"'
+
+    - regexp: "node_ip = "
+      line: 'node_ip = "{{ rubrik_db_backup_host }}"'
+
+    - regexp: "RSC_USER = "
+      line: 'RSC_USER = "{{ rubrik_db_backup_rsc_user | trim }}"'
+
+    - regexp: "RSC_SECRET = "
+      line: 'RSC_SECRET = "{{ rubrik_db_backup_rsc_secret | trim }}"'
+
+    - regexp: "managed_volume_name = "
+      line: >-
+        managed_volume_name = "{{ rubrik_db_backup_mv_name }}"
+
+    - regexp: "emailfrom = "
+      line: 'emailfrom = "{{ rubrik_db_backup_email }}"'
+
+    - regexp: "emailto = "
+      line: 'emailto = "{{ rubrik_db_backup_email }}"'
+
+    - regexp: "to_omit = "
+      line: "to_omit = []"
+
+    - regexp: "to_include = "
+      line: "to_include = []"
+  loop_control:
+    label: "{{ item.regexp }}"
+  no_log: true
+
+- name: Set Rubrik backup repository ownership
+  ansible.builtin.file:
+    path: "{{ rubrik_db_backup_repo_path }}"
+    state: directory
+    owner: "{{ rubrik_db_backup_user }}"
+    group: "{{ rubrik_db_backup_user }}"
+    mode: "0700"
+    recurse: true
+
+- name: Grant Splunk read access to Rubrik backup repository
+  ansible.posix.acl:
+    path: "{{ rubrik_db_backup_repo_path }}"

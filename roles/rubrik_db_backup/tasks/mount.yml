@@ -1,0 +1,100 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Retrieves and mounts the Rubrik Managed Volume.
+# Obtains the NFS export details from Rubrik and persistently mounts the
+# PostgreSQL backup volume in the DDpostgres home directory.
+
+- name: Retrieve Rubrik Managed Volume mount details
+  ansible.builtin.uri:
+    url: "{{ rubrik_db_backup_api_url }}/graphql"
+    method: POST
+    headers:
+      Authorization: "{{ rubrik_db_backup_bearer_token }}"
+    body_format: json
+    body:
+      query: |
+        query retrieveMVMountDetails(
+          $mv_name: [String!]
+        ) {
+          managedVolumes(
+            filter: [
+              {
+                field: NAME_EXACT_MATCH,
+                texts: $mv_name
+              }
+            ]
+          ) {
+            nodes {
+              mainMount {
+                channels {
+                  floatingIpAddress
+                  mountSpec {
+                    mountDir
+                  }
+                }
+              }
+            }
+          }
+        }
+      variables:
+        mv_name:
+          - "{{ rubrik_db_backup_mv_name }}"
+    return_content: true
+    status_code: 200
+  register: rubrik_db_backup_mount_response
+  retries: 10
+  delay: 30
+  until:
+    - >-
+      rubrik_db_backup_mount_response.json.data.managedVolumes.nodes
+      | length > 0
+    - >-
+      rubrik_db_backup_mount_response
+      .json.data.managedVolumes.nodes[0].mainMount is not none
+  no_log: true
+
+- name: Record Rubrik Managed Volume mount details
+  ansible.builtin.set_fact:
+    rubrik_db_backup_mv_ip: >-
+      {{
+        rubrik_db_backup_mount_response
+        .json.data.managedVolumes.nodes[0]
+        .mainMount.channels[0].floatingIpAddress
+      }}
+    rubrik_db_backup_mv_mount_directory: >-
+      {{
+        rubrik_db_backup_mount_response
+        .json.data.managedVolumes.nodes[0]
+        .mainMount.channels[0].mountSpec.mountDir
+      }}
+
+- name: Validate Rubrik Managed Volume mount details
+  ansible.builtin.assert:
+    that:
+      - rubrik_db_backup_mv_ip | length > 0
+      - rubrik_db_backup_mv_mount_directory | length > 0
+    fail_msg: >-
+      Rubrik did not return valid NFS mount details for Managed Volume
+      {{ rubrik_db_backup_mv_name }}.
+    success_msg: >-
+      Rubrik NFS mount details were retrieved for
+      {{ rubrik_db_backup_mv_name }}.
+
+- name: Mount Rubrik Managed Volume
+  ansible.posix.mount:
+    path: "{{ rubrik_db_backup_mountpoint }}"
+    src: >-
+      {{ rubrik_db_backup_mv_ip }}:{{
+        rubrik_db_backup_mv_mount_directory
+      }}
+    fstype: nfs
+    opts: defaults,_netdev
+    state: mounted
+
+- name: Ensure Rubrik Managed Volume mount ownership
+  ansible.builtin.file:
+    path: "{{ rubrik_db_backup_mountpoint }}"
+    state: directory
+    owner: "{{ rubrik_db_backup_user }}"
+    group: "{{ rubrik_db_backup_user }}"
+    mode: "0755"

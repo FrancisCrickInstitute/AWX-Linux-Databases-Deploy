@@ -1,0 +1,61 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Determines the Rubrik backup environment and Managed Volume settings.
+# Selects the appropriate SLA from the server hostname and builds the
+# PostgreSQL Managed Volume name.
+
+- name: Determine Rubrik backup environment
+  ansible.builtin.set_fact:
+    rubrik_db_backup_environment: "{{ item.environment }}"
+  when: ansible_hostname is match(item.pattern)
+  loop:
+    - pattern: '^clvd(0|1)-[a-z][a-z]-[a-z]-(d|t)'
+      environment: Staging
+
+    - pattern: '^clvd1-[a-z][a-z]-[a-z]-p'
+      environment: Production
+  loop_control:
+    label: "{{ item.environment }}"
+
+- name: Validate Rubrik backup environment
+  ansible.builtin.assert:
+    that:
+      - rubrik_db_backup_environment is defined
+      - >-
+        rubrik_db_backup_environment
+        in rubrik_db_backup_sla_ids
+    fail_msg: >-
+      Unable to determine the Rubrik backup environment from hostname
+      {{ ansible_hostname }}.
+    success_msg: >-
+      Rubrik {{ rubrik_db_backup_environment }} environment selected.
+
+- name: Select Rubrik SLA
+  ansible.builtin.set_fact:
+    rubrik_db_backup_sla_id: >-
+      {{ rubrik_db_backup_sla_ids[rubrik_db_backup_environment] }}
+
+- name: Build Rubrik Managed Volume name
+  ansible.builtin.set_fact:
+    rubrik_db_backup_mv_name: >-
+      {{ ansible_nodename }}-{{ rubrik_db_backup_mv_name_suffix }}
+
+- name: Check whether Rubrik Managed Volume is mounted
+  ansible.builtin.set_fact:
+    rubrik_db_backup_mv_is_mounted: >-
+      {{
+        rubrik_db_backup_mountpoint
+        in (ansible_facts.mounts | map(attribute='mount') | list)
+      }}
+
+- name: Display selected Rubrik backup configuration
+  ansible.builtin.debug:
+    msg:
+      - >-
+        Environment: {{ rubrik_db_backup_environment }}
+      - >-
+        Managed Volume: {{ rubrik_db_backup_mv_name }}
+      - >-
+        Mount point: {{ rubrik_db_backup_mountpoint }}
+      - >-
+        Already mounted: {{ rubrik_db_backup_mv_is_mounted }}

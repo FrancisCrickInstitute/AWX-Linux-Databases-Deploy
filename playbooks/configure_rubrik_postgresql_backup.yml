@@ -1,0 +1,18 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Configures Rubrik Managed Volume backup for PostgreSQL 18.
+# Runs the Rubrik database backup role against the server supplied by AWX.
+
+- name: Configure Rubrik PostgreSQL backup
+  hosts: "{{ vm_name | default('localhost') }}"
+  become: true
+  become_user: root
+  gather_facts: true
+
+  vars_files:
+    - ../vars/rubrik_postgresql_vault.yml
+
+  tasks:
+    - name: Apply Rubrik PostgreSQL backup role
+      ansible.builtin.import_role:
+        name: rubrik_db_backup

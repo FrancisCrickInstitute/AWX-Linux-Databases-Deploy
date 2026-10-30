@@ -1,0 +1,15 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Installs packages required by the Rubrik database backup role.
+# Provides Git, NFS and Python components required for the backup repository
+# and Rubrik Managed Volume on Rocky Linux 10+.
+
+- name: Install Rubrik database backup packages
+  ansible.builtin.dnf:
+    name:
+      - git
+      - nfs-utils
+      - python3
+      - python3-pip
+      - acl
+    state: present

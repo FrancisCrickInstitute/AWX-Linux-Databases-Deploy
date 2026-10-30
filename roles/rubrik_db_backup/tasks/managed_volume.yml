@@ -1,0 +1,202 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Creates or locates the Rubrik Managed Volume used for database backups.
+# Authenticates to Rubrik Security Cloud, checks whether the Managed Volume
+# exists, creates it when required, and applies the environment-specific SLA.
+
+- name: Obtain Rubrik API bearer token
+  ansible.builtin.uri:
+    url: "{{ rubrik_db_backup_api_url }}/client_token"
+    method: POST
+    body_format: json
+    body:
+      client_id: "{{ rubrik_db_backup_service_account_id }}"
+      client_secret: "{{ rubrik_db_backup_service_account_secret }}"
+    return_content: true
+    status_code: 200
+  register: rubrik_db_backup_token_response
+  no_log: true
+
+- name: Record Rubrik API bearer token
+  ansible.builtin.set_fact:
+    rubrik_db_backup_bearer_token: >-
+      Bearer {{ rubrik_db_backup_token_response.json.access_token }}
+  no_log: true
+
+- name: Search for existing Rubrik Managed Volume
+  ansible.builtin.uri:
+    url: "{{ rubrik_db_backup_api_url }}/graphql"
+    method: POST
+    headers:
+      Authorization: "{{ rubrik_db_backup_bearer_token }}"
+    body_format: json
+    body:
+      query: |
+        query retrieveMVId($mv_name: [String!]) {
+          managedVolumes(
+            filter: [
+              {
+                field: NAME_EXACT_MATCH,
+                texts: $mv_name
+              }
+            ]
+          ) {
+            nodes {
+              id
+            }
+          }
+        }
+      variables:
+        mv_name:
+          - "{{ rubrik_db_backup_mv_name }}"
+    return_content: true
+    status_code: 200
+  register: rubrik_db_backup_mv_search
+  no_log: true
+
+- name: Record existing Rubrik Managed Volume ID
+  ansible.builtin.set_fact:
+    rubrik_db_backup_mv_id: >-
+      {{
+        rubrik_db_backup_mv_search.json.data.managedVolumes.nodes[0].id
+      }}
+  when:
+    - rubrik_db_backup_mv_search.json.data.managedVolumes.nodes | length > 0
+
+- name: Create Rubrik Managed Volume
+  ansible.builtin.uri:
+    url: "{{ rubrik_db_backup_api_url }}/graphql"
+    method: POST
+    headers:
+      Authorization: "{{ rubrik_db_backup_bearer_token }}"
+    body_format: json
+    body:
+      query: |
+        mutation createMV(
+          $mv_config: ManagedVolumeConfigInput!
+        ) {
+          addManagedVolume(
+            input: {
+              clusterUuid: "{{ rubrik_db_backup_cluster_uuid }}",
+              managedVolumeConfig: $mv_config
+            }
+          ) {
+            managedVolumeSummary {
+              applicationTag
+              numChannels
+              volumeSize
+              hostPatterns
+              shareType
+            }
+          }
+        }
+      variables:
+        mv_config:
+          name: "{{ rubrik_db_backup_mv_name }}"
+          applicationTag: "{{ rubrik_db_backup_application_tag }}"
+          numChannels: 1
+          volumeSize: "{{ rubrik_db_backup_volume_size | int }}"
+          exportConfig:
+            shareType: MANAGED_VOLUME_SHARE_TYPE_NFS
+            managedVolumePatchConfig:
+              hostPatterns:
+                - "{{ ansible_default_ipv4.address }}"
+    return_content: true
+    status_code: 200
+  register: rubrik_db_backup_mv_create
+  when: rubrik_db_backup_mv_id is not defined
+  changed_when: true
+  no_log: true
+
+- name: Record Rubrik Managed Volume creation
+  ansible.builtin.set_fact:
+    rubrik_db_backup_mv_created: true
+  when:
+    - rubrik_db_backup_mv_id is not defined
+    - rubrik_db_backup_mv_create is succeeded
+
+- name: Retrieve newly created Rubrik Managed Volume
+  ansible.builtin.uri:
+    url: "{{ rubrik_db_backup_api_url }}/graphql"
+    method: POST
+    headers:
+      Authorization: "{{ rubrik_db_backup_bearer_token }}"
+    body_format: json
+    body:
+      query: |
+        query retrieveMVId($mv_name: [String!]) {
+          managedVolumes(
+            filter: [
+              {
+                field: NAME_EXACT_MATCH,
+                texts: $mv_name
+              }
+            ]
+          ) {
+            nodes {
+              id
+            }
+          }
+        }
+      variables:
+        mv_name:
+          - "{{ rubrik_db_backup_mv_name }}"
+    return_content: true
+    status_code: 200
+  register: rubrik_db_backup_new_mv_search
+  when: rubrik_db_backup_mv_id is not defined
+  no_log: true
+
+- name: Record newly created Rubrik Managed Volume ID
+  ansible.builtin.set_fact:
+    rubrik_db_backup_mv_id: >-
+      {{
+        rubrik_db_backup_new_mv_search
+        .json.data.managedVolumes.nodes[0].id
+      }}
+  when:
+    - rubrik_db_backup_mv_id is not defined
+    - >-
+      rubrik_db_backup_new_mv_search
+      .json.data.managedVolumes.nodes | length > 0
+
+- name: Validate Rubrik Managed Volume ID
+  ansible.builtin.assert:
+    that:
+      - rubrik_db_backup_mv_id is defined
+      - rubrik_db_backup_mv_id | length > 0
+    fail_msg: >-
+      Rubrik Managed Volume {{ rubrik_db_backup_mv_name }}
+      could not be found or created.
+    success_msg: >-
+      Rubrik Managed Volume {{ rubrik_db_backup_mv_name }}
+      is available.
+
+- name: Assign SLA to new Rubrik Managed Volume
+  ansible.builtin.uri:
+    url: "{{ rubrik_db_backup_api_url }}/graphql"
+    method: POST
+    headers:
+      Authorization: "{{ rubrik_db_backup_bearer_token }}"
+    body_format: json
+    body:
+      query: |
+        mutation assignSLA(
+          $input: UpdateManagedVolumeInput!
+        ) {
+          updateManagedVolume(
+            input: $input
+          ) {
+            hostPatterns
+          }
+        }
+      variables:
+        input:
+          id: "{{ rubrik_db_backup_mv_id }}"
+          update:
+            configuredSlaDomainId: "{{ rubrik_db_backup_sla_id }}"
+    return_content: true
+    status_code: 200
+  when: rubrik_db_backup_mv_created | bool
+  changed_when: true
+  no_log: true

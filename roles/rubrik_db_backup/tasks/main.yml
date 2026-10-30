@@ -1,0 +1,66 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Defines the execution order for the Rubrik database backup role.
+# Validates the database environment, configures the backup account,
+# manages the Rubrik Managed Volume, deploys the backup repository,
+# configures the backup schedule, and verifies the completed configuration.
+
+- name: Validate Rubrik database backup requirements
+  ansible.builtin.import_tasks: validate.yml
+  tags:
+    - rubrik_db_backup
+    - validate
+
+- name: Determine Rubrik backup environment
+  ansible.builtin.import_tasks: environment.yml
+  tags:
+    - rubrik_db_backup
+    - environment
+
+- name: Install Rubrik backup dependencies
+  ansible.builtin.import_tasks: packages.yml
+  tags:
+    - rubrik_db_backup
+    - packages
+
+- name: Configure PostgreSQL backup user
+  ansible.builtin.import_tasks: backup_user.yml
+  tags:
+    - rubrik_db_backup
+    - backup_user
+
+- name: Configure Rubrik Managed Volume
+  ansible.builtin.import_tasks: managed_volume.yml
+  tags:
+    - rubrik_db_backup
+    - managed_volume
+
+- name: Mount Rubrik Managed Volume
+  ansible.builtin.import_tasks: mount.yml
+  tags:
+    - rubrik_db_backup
+    - mount
+
+- name: Deploy Rubrik backup repository
+  ansible.builtin.import_tasks: repository.yml
+  tags:
+    - rubrik_db_backup
+    - repository
+
+- name: Configure Rubrik backup schedule
+  ansible.builtin.import_tasks: cron.yml
+  tags:
+    - rubrik_db_backup
+    - cron
+
+- name: Configure PostgreSQL backup permissions
+  ansible.builtin.import_tasks: postgresql.yml
+  tags:
+    - rubrik_db_backup
+    - postgresql
+
+- name: Verify Rubrik database backup configuration
+  ansible.builtin.import_tasks: verify.yml
+  tags:
+    - rubrik_db_backup
+    - verify

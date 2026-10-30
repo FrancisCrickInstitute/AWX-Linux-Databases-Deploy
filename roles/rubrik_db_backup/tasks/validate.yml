@@ -1,0 +1,121 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Validates the target server and required Rubrik backup variables.
+# Prevents backup configuration from continuing on unsupported systems,
+# non-PostgreSQL hosts, or servers without a PostgreSQL 18 cluster.
+
+- name: Validate supported operating system
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == "Rocky"
+      - ansible_facts.distribution_major_version | int >= 10
+    fail_msg: >-
+      This Rubrik PostgreSQL backup role supports Rocky Linux 10 or later.
+      Detected {{ ansible_facts.distribution }}
+      {{ ansible_facts.distribution_version }}.
+    success_msg: >-
+      Supported operating system detected:
+      {{ ansible_facts.distribution }}
+      {{ ansible_facts.distribution_version }}.
+
+- name: Validate PostgreSQL local fact
+  ansible.builtin.assert:
+    that:
+      - ansible_local.tags is defined
+      - ansible_local.tags.postgresql is defined
+      - ansible_local.tags.postgresql | bool
+    fail_msg: >-
+      The PostgreSQL local fact is missing or false.
+      Run the database configuration checks job before configuring Rubrik backup.
+    success_msg: "PostgreSQL local fact is present and true."
+
+- name: Check PostgreSQL cluster version file
+  ansible.builtin.stat:
+    path: "{{ rubrik_db_backup_postgresql_datadir }}/PG_VERSION"
+  register: rubrik_db_backup_pg_version_file
+
+- name: Validate PostgreSQL cluster exists
+  ansible.builtin.assert:
+    that:
+      - rubrik_db_backup_pg_version_file.stat.exists
+      - rubrik_db_backup_pg_version_file.stat.isreg
+    fail_msg: >-
+      PostgreSQL cluster version file was not found at
+      {{ rubrik_db_backup_postgresql_datadir }}/PG_VERSION.
+
+- name: Read PostgreSQL cluster version
+  ansible.builtin.slurp:
+    src: "{{ rubrik_db_backup_postgresql_datadir }}/PG_VERSION"
+  register: rubrik_db_backup_pg_version
+
+- name: Validate PostgreSQL major version
+  ansible.builtin.assert:
+    that:
+      - >-
+        (rubrik_db_backup_pg_version.content |
+         b64decode |
+         trim) ==
+        (rubrik_db_backup_postgresql_major_version | string)
+    fail_msg: >-
+      This Rubrik backup role expects PostgreSQL
+      {{ rubrik_db_backup_postgresql_major_version }}, but the cluster at
+      {{ rubrik_db_backup_postgresql_datadir }} contains a different version.
+    success_msg: >-
+      PostgreSQL {{ rubrik_db_backup_postgresql_major_version }}
+      cluster detected.
+
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+- name: Validate PostgreSQL service is running
+  ansible.builtin.assert:
+    that:
+      - >-
+        ansible_facts.services[
+          'postgresql-' ~
+          rubrik_db_backup_postgresql_major_version ~
+          '.service'
+        ] is defined
+      - >-
+        ansible_facts.services[
+          'postgresql-' ~
+          rubrik_db_backup_postgresql_major_version ~
+          '.service'
+        ].state == 'running'
+    fail_msg: >-
+      PostgreSQL service postgresql-{{
+        rubrik_db_backup_postgresql_major_version
+      }}.service is not running.
+    success_msg: >-
+      PostgreSQL service postgresql-{{
+        rubrik_db_backup_postgresql_major_version
+      }}.service is running.
+
+- name: Validate required Rubrik backup credentials
+  ansible.builtin.assert:
+    that:
+      - rubrik_db_backup_dd_password is defined
+      - rubrik_db_backup_dd_password | length > 0
+      - rubrik_db_backup_service_account_id is defined
+      - rubrik_db_backup_service_account_id | length > 0
+      - rubrik_db_backup_service_account_secret is defined
+      - rubrik_db_backup_service_account_secret | length > 0
+      - rubrik_db_backup_rsc_user is defined
+      - rubrik_db_backup_rsc_user | length > 0
+      - rubrik_db_backup_rsc_secret is defined
+      - rubrik_db_backup_rsc_secret | length > 0
+    fail_msg: >-
+      One or more required Rubrik/PostgreSQL backup credentials are missing.
+      Supply them through the encrypted Rubrik PostgreSQL Vault file.
+  no_log: true
+
+- name: Validate Rubrik backup configuration
+  ansible.builtin.assert:
+    that:
+      - rubrik_db_backup_host | length > 0
+      - rubrik_db_backup_user | length > 0
+      - rubrik_db_backup_mountpoint | length > 1
+      - rubrik_db_backup_volume_size | int > 0
+      - rubrik_db_backup_repo_address | length > 0
+      - rubrik_db_backup_repo_path | length > 1
+    fail_msg: "One or more Rubrik backup configuration values are invalid."

@@ -1,0 +1,67 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Creates and configures the PostgreSQL backup operating-system account.
+# Prepares the DDpostgres home directory and Rubrik Managed Volume mount point
+# while keeping password management idempotent.
+
+- name: Ensure PostgreSQL backup group exists
+  ansible.builtin.group:
+    name: "{{ rubrik_db_backup_user }}"
+    state: present
+
+- name: Ensure PostgreSQL backup user exists
+  ansible.builtin.user:
+    name: "{{ rubrik_db_backup_user }}"
+    group: "{{ rubrik_db_backup_user }}"
+    shell: /bin/bash
+    create_home: true
+    password: >-
+      {{
+        rubrik_db_backup_dd_password
+        | string
+        | password_hash('sha512')
+      }}
+    update_password: on_create
+    state: present
+  no_log: true
+
+- name: Ensure PostgreSQL backup user home has correct ownership
+  ansible.builtin.file:
+    path: "/home/{{ rubrik_db_backup_user }}"
+    state: directory
+    owner: "{{ rubrik_db_backup_user }}"
+    group: "{{ rubrik_db_backup_user }}"
+    mode: "0755"
+
+- name: Ensure Rubrik backup mount point exists
+  ansible.builtin.file:
+    path: "{{ rubrik_db_backup_mountpoint }}"
+    state: directory
+    owner: "{{ rubrik_db_backup_user }}"
+    group: "{{ rubrik_db_backup_user }}"
+    mode: "0755"
+  when: not rubrik_db_backup_mv_is_mounted | bool
+
+- name: Ensure Rubrik backup log exists
+  ansible.builtin.file:
+    path: "/home/{{ rubrik_db_backup_user }}/rubrik_backup.log"
+    state: touch
+    owner: "{{ rubrik_db_backup_user }}"
+    group: "{{ rubrik_db_backup_user }}"
+    mode: "0644"
+    modification_time: preserve
+    access_time: preserve
+
+- name: Gather local account information
+  ansible.builtin.getent:
+    database: passwd
+
+- name: Grant Splunk access to PostgreSQL backup user home
+  ansible.posix.acl:
+    path: "/home/{{ rubrik_db_backup_user }}"
+    entity: splunk
+    etype: user
+    permissions: rX
+    state: present
+  when:
+    - "'splunk' in ansible_facts.getent_passwd"

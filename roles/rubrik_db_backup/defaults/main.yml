@@ -1,0 +1,63 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Defines default configuration used by the Rubrik database backup role.
+# Provides reusable Rubrik managed-volume, backup account, repository,
+# mount and PostgreSQL settings that can be overridden where required.
+
+# Rubrik managed volume state
+rubrik_db_backup_mv_is_mounted: false
+rubrik_db_backup_mv_created: false
+
+# Rubrik configuration
+rubrik_db_backup_host: "rubrik.thecrick.org"
+rubrik_db_backup_api_url: "https://crick.my.rubrik.com/api"
+rubrik_db_backup_cluster_uuid: "f83e6f94-3a65-46e8-90b4-8938954bad47"
+
+rubrik_db_backup_sla_ids:
+  Staging: "fe091586-5243-440c-8e51-8688431c3fb9"
+  Production: "cc3ab8d9-cb65-40cb-8144-cae238afe8da"
+
+# PostgreSQL backup configuration
+rubrik_db_backup_database_type: "PostgreSQL"
+rubrik_db_backup_data_server: "postgres"
+
+rubrik_db_backup_application_tag: >-
+  MANAGED_VOLUME_APPLICATION_TAG_POSTGRE_SQL
+
+rubrik_db_backup_mv_name_suffix: "PostgreSql"
+
+# Backup user
+rubrik_db_backup_user: "DDpostgres"
+
+# Managed volume
+rubrik_db_backup_mountpoint: >-
+  /home/{{ rubrik_db_backup_user }}/rubrik_db_backup
+
+rubrik_db_backup_volume_size: 10737418240
+
+# Backup repository
+rubrik_db_backup_repo_name: "python_backup_rubrik"
+rubrik_db_backup_repo_address: >-
+  git@github.com:FrancisCrickInstitute/python_backup_rubrik.git
+
+rubrik_db_backup_config_file: "config_backup.py"
+rubrik_db_backup_script: "backup_rubrik.py"
+
+rubrik_db_backup_repo_path: >-
+  /home/{{ rubrik_db_backup_user }}/{{ rubrik_db_backup_repo_name }}
+
+rubrik_db_backup_config_path: >-
+  {{ rubrik_db_backup_repo_path }}/{{ rubrik_db_backup_config_file }}
+
+# PostgreSQL
+rubrik_db_backup_postgresql_major_version: "18"
+rubrik_db_backup_postgresql_datadir: "/postgres/data"
+rubrik_db_backup_postgresql_bin_path: >-
+  /usr/pgsql-{{ rubrik_db_backup_postgresql_major_version }}/bin
+
+# Backup notifications
+rubrik_db_backup_email: "Dba-maint@crick.ac.uk"
+
+# Backup schedule
+rubrik_db_backup_cron_minute: "30"
+rubrik_db_backup_cron_hour: "3"

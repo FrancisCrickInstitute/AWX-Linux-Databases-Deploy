@@ -1,0 +1,56 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Configures PostgreSQL permissions required by the Rubrik backup account.
+# Creates the DDpostgres database role through the local PostgreSQL 18 socket
+# and applies the permissions used by the existing backup process.
+
+- name: Ensure PostgreSQL backup database role exists
+  community.postgresql.postgresql_user:
+    name: "{{ rubrik_db_backup_user }}"
+    password: "{{ rubrik_db_backup_dd_password }}"
+    role_attr_flags: LOGIN,SUPERUSER,REPLICATION
+    configuration:
+      default_transaction_read_only: "on"
+    login_db: postgres
+    login_user: postgres
+    login_unix_socket: /var/run/postgresql
+    state: present
+  become: true
+  become_user: postgres
+  no_log: true
+
+- name: Grant postgres role membership to backup database role
+  community.postgresql.postgresql_membership:
+    groups:
+      - postgres
+    target_roles:
+      - "{{ rubrik_db_backup_user }}"
+    grant_option: true
+    login_db: postgres
+    login_user: postgres
+    login_unix_socket: /var/run/postgresql
+    state: present
+  become: true
+  become_user: postgres
+
+- name: Grant Splunk access to PostgreSQL backup repository
+  ansible.posix.acl:
+    path: "{{ rubrik_db_backup_repo_path }}"
+    entity: splunk
+    etype: user
+    permissions: rX
+    recursive: true
+    state: present
+  when:
+    - "'splunk' in ansible_facts.getent_passwd"
+
+- name: Set default Splunk ACL on PostgreSQL backup repository
+  ansible.posix.acl:
+    path: "{{ rubrik_db_backup_repo_path }}"
+    entity: splunk
+    etype: user
+    permissions: rX
+    default: true
+    state: present
+  when:
+    - "'splunk' in ansible_facts.getent_passwd"

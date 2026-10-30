@@ -1,0 +1,17 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Configures the scheduled PostgreSQL Rubrik backup.
+# Creates a stable daily cron entry for the DDpostgres backup account
+# so repeated Ansible runs remain idempotent.
+
+- name: Configure daily PostgreSQL Rubrik backup
+  ansible.builtin.cron:
+    name: Daily Schema backup for DB
+    user: "{{ rubrik_db_backup_user }}"
+    minute: "{{ rubrik_db_backup_cron_minute }}"
+    hour: "{{ rubrik_db_backup_cron_hour }}"
+    job: >-
+      cd {{ rubrik_db_backup_repo_path }}
+      && /usr/bin/python3 {{ rubrik_db_backup_script }}
+      >> /home/{{ rubrik_db_backup_user }}/rubrik_backup.log 2>&1
+    state: present
