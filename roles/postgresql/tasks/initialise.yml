@@ -1,0 +1,54 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Prepares the PostgreSQL data directory and initialises the PostgreSQL 18 cluster.
+# Ensures an existing PostgreSQL cluster is preserved and is never reinitialised.
+
+- name: Ensure PostgreSQL mount directory has correct ownership
+  ansible.builtin.file:
+    path: "{{ postgresql_mount }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0775"
+
+- name: Ensure PostgreSQL data directory exists
+  ansible.builtin.file:
+    path: "{{ postgresql_datadir }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0700"
+
+- name: Initialise PostgreSQL cluster
+  ansible.builtin.command:
+    argv:
+      - "{{ postgresql_bin_path }}/initdb"
+      - "--username=postgres"
+      - "--locale={{ postgresql_locale }}"
+      - "--encoding=UTF8"
+      - "--data-checksums"
+      - "-D"
+      - "{{ postgresql_datadir }}"
+  become: true
+  become_user: postgres
+  register: postgresql_initdb
+  changed_when: postgresql_initdb.rc == 0
+  when: not postgresql_is_initialised | bool
+
+- name: Check PostgreSQL cluster version after initialisation
+  ansible.builtin.slurp:
+    src: "{{ postgresql_datadir }}/PG_VERSION"
+  register: postgresql_initialised_version
+
+- name: Verify PostgreSQL 18 cluster was initialised
+  ansible.builtin.assert:
+    that:
+      - >-
+        (postgresql_initialised_version.content |
+         b64decode |
+         trim) == (postgresql_major_version | string)
+    fail_msg: >-
+      PostgreSQL cluster initialisation did not produce the expected
+      PostgreSQL {{ postgresql_major_version }} data directory.
+    success_msg: >-
+      PostgreSQL {{ postgresql_major_version }} data directory is present.

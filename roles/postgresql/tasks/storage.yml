@@ -1,0 +1,94 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Configures dedicated storage for PostgreSQL.
+# Adds the database disk in VMware, creates the LVM layout and mounts
+# the XFS filesystem at the PostgreSQL mount point.
+
+- name: Validate database disk size
+  ansible.builtin.assert:
+    that:
+      - db_disk_size_gb is defined
+      - db_disk_size_gb | int > 0
+    fail_msg: >-
+      db_disk_size_gb must be provided and must be greater than 0.
+
+- name: Add PostgreSQL database disk to VM
+  community.vmware.vmware_guest_disk:
+    validate_certs: false
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_user }}"
+    password: "{{ vcenter_pass }}"
+    datacenter: "{{ vcenter_datacenter }}"
+    name: "{{ ansible_hostname }}"
+    disk:
+      - size_gb: "{{ db_disk_size_gb | int }}"
+        type: thick
+        datastore: "{{ vcenter_datastore }}"
+        state: present
+        scsi_controller: 0
+        unit_number: 1
+  become: false
+  delegate_to: localhost
+  when: not postgresql_is_mounted | bool
+
+- name: Rescan PostgreSQL disk
+  ansible.builtin.command:
+    cmd: >-
+      sh -c 'echo 1 > /sys/class/block/{{ postgresql_disk | basename }}/device/rescan'
+  changed_when: false
+  when: not postgresql_is_mounted | bool
+
+- name: Check PostgreSQL disk exists
+  ansible.builtin.stat:
+    path: "{{ postgresql_disk }}"
+  register: postgresql_disk_status
+
+- name: Fail if PostgreSQL disk is not available
+  ansible.builtin.assert:
+    that:
+      - postgresql_disk_status.stat.exists
+    fail_msg: >-
+      PostgreSQL disk {{ postgresql_disk }} was not found after the
+      VMware disk was added.
+
+- name: Create PostgreSQL disk partition
+  community.general.parted:
+    device: "{{ postgresql_disk }}"
+    number: 1
+    part_type: primary
+    part_start: "0%"
+    part_end: "100%"
+    flags:
+      - lvm
+    state: present
+  when: not postgresql_is_mounted | bool
+
+- name: Create PostgreSQL volume group
+  community.general.lvg:
+    vg: "{{ postgresql_volume_group }}"
+    pvs: "{{ postgresql_partition }}"
+    state: present
+  when: not postgresql_is_mounted | bool
+
+- name: Create PostgreSQL logical volume
+  community.general.lvol:
+    vg: "{{ postgresql_volume_group }}"
+    lv: "{{ postgresql_logical_volume }}"
+    size: "100%FREE"
+    state: present
+  when: not postgresql_is_mounted | bool
+
+- name: Create PostgreSQL filesystem
+  community.general.filesystem:
+    fstype: "{{ postgresql_filesystem }}"
+    dev: >-
+      /dev/mapper/{{ postgresql_volume_group }}-{{ postgresql_logical_volume }}
+  when: not postgresql_is_mounted | bool
+
+- name: Mount PostgreSQL filesystem
+  ansible.posix.mount:
+    path: "{{ postgresql_mount }}"
+    src: >-
+      /dev/mapper/{{ postgresql_volume_group }}-{{ postgresql_logical_volume }}
+    fstype: "{{ postgresql_filesystem }}"
+    state: mounted

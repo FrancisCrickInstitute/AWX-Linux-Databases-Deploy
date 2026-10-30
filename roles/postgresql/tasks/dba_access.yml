@@ -1,0 +1,69 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Configures PostgreSQL DBA administrative access.
+# Provides approved DBA group members with PostgreSQL service privileges,
+# access to the postgres account, and read access to PostgreSQL logs.
+
+- name: Check whether PostgreSQL DBA group is available
+  ansible.builtin.command:
+    argv:
+      - getent
+      - group
+      - "{{ postgresql_dba_access_group }}"
+  register: postgresql_dba_group_check
+  changed_when: false
+  failed_when:
+    - postgresql_dba_group_check.rc != 0
+    - postgresql_dba_group_check.rc != 2
+
+- name: Record PostgreSQL DBA group availability
+  ansible.builtin.set_fact:
+    postgresql_dba_have_access: "{{ postgresql_dba_group_check.rc == 0 }}"
+
+- name: Configure PostgreSQL DBA sudo access
+  ansible.builtin.blockinfile:
+    path: /etc/sudoers.d/dba
+    create: true
+    owner: root
+    group: root
+    mode: "0440"
+    marker: "# {mark} ANSIBLE MANAGED POSTGRESQL DBA"
+    block: |
+      ## Allow approved DBAs to manage PostgreSQL
+      Cmnd_Alias POSTGRESQLSERVICES = \
+          /bin/systemctl start {{ postgresql_service_name }}, \
+          /bin/systemctl stop {{ postgresql_service_name }}, \
+          /bin/systemctl restart {{ postgresql_service_name }}, \
+          /bin/systemctl status {{ postgresql_service_name }}, \
+          /bin/systemctl start {{ postgresql_service_name }}.service, \
+          /bin/systemctl stop {{ postgresql_service_name }}.service, \
+          /bin/systemctl restart {{ postgresql_service_name }}.service, \
+          /bin/systemctl status {{ postgresql_service_name }}.service, \
+          /bin/mount, \
+          /bin/umount
+
+      %{{ postgresql_dba_access_group }} ALL=POSTGRESQLSERVICES
+      %{{ postgresql_dba_access_group }} ALL=(postgres) NOPASSWD: ALL
+    state: present
+    validate: /usr/sbin/visudo -cf %s
+  when: postgresql_dba_have_access | bool
+
+- name: Grant PostgreSQL DBA group access to PostgreSQL logs
+  ansible.posix.acl:
+    path: "{{ postgresql_datadir }}/pg_log"
+    entity: "{{ postgresql_dba_access_group }}"
+    etype: group
+    permissions: rX
+    recursive: true
+    state: present
+  when: postgresql_dba_have_access | bool
+
+- name: Set default PostgreSQL log ACL for DBA group
+  ansible.posix.acl:
+    path: "{{ postgresql_datadir }}/pg_log"
+    entity: "{{ postgresql_dba_access_group }}"
+    etype: group
+    permissions: rX
+    default: true
+    state: present
+  when: postgresql_dba_have_access | bool

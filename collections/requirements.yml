@@ -1,0 +1,14 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Defines the Ansible collections required by the PostgreSQL deployment.
+# Provides modules for VMware, PostgreSQL, storage, filesystem, ACL and
+# firewalld configuration.
+
+collections:
+  - name: ansible.posix
+
+  - name: community.general
+
+  - name: community.postgresql
+
+  - name: community.vmware

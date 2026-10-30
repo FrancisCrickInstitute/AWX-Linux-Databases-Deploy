@@ -1,0 +1,15 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Configures PostgreSQL 18 on a Rocky Linux 10+ server.
+# Runs the PostgreSQL role against the VM supplied by the AWX Job Template.
+
+- name: Configure PostgreSQL
+  hosts: "{{ vm_name | default('localhost') }}"
+  become: true
+  become_user: root
+  gather_facts: true
+
+  tasks:
+    - name: Apply PostgreSQL role
+      ansible.builtin.import_role:
+        name: postgresql

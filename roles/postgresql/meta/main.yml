@@ -1,0 +1,23 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Defines metadata and platform support for the PostgreSQL role.
+# Documents the supported Ansible version, operating system, and role dependencies.
+
+galaxy_info:
+  author: Adam Spandel
+  description: Deploy and configure PostgreSQL 18 on Rocky Linux 10+
+  license: proprietary
+  min_ansible_version: "2.15"
+
+  platforms:
+    - name: EL
+      versions:
+        - "10"
+
+  galaxy_tags:
+    - postgresql
+    - database
+    - rocky
+    - linux
+
+dependencies: []

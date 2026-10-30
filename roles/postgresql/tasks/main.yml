@@ -1,0 +1,73 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Defines the execution order for the PostgreSQL role.
+# Loads each PostgreSQL configuration stage in a controlled sequence.
+
+- name: Validate PostgreSQL deployment requirements
+  ansible.builtin.import_tasks: validate.yml
+  tags:
+    - postgresql
+    - validate
+
+- name: Configure PostgreSQL repository
+  ansible.builtin.import_tasks: repository.yml
+  tags:
+    - postgresql
+    - repository
+
+- name: Install PostgreSQL packages
+  ansible.builtin.import_tasks: packages.yml
+  tags:
+    - postgresql
+    - packages
+
+- name: Configure PostgreSQL storage
+  ansible.builtin.import_tasks: storage.yml
+  when: postgresql_configure_storage | bool
+  tags:
+    - postgresql
+    - storage
+
+- name: Initialise PostgreSQL cluster
+  ansible.builtin.import_tasks: initialise.yml
+  tags:
+    - postgresql
+    - initialise
+
+- name: Configure PostgreSQL
+  ansible.builtin.import_tasks: configure.yml
+  tags:
+    - postgresql
+    - configuration
+
+- name: Configure PostgreSQL firewall
+  ansible.builtin.import_tasks: firewall.yml
+  when: postgresql_configure_firewall | bool
+  tags:
+    - postgresql
+    - firewall
+
+- name: Configure PostgreSQL DBA access
+  ansible.builtin.import_tasks: dba_access.yml
+  when: postgresql_configure_dba_access | bool
+  tags:
+    - postgresql
+    - dba_access
+
+- name: Configure PostgreSQL service
+  ansible.builtin.import_tasks: service.yml
+  tags:
+    - postgresql
+    - service
+
+- name: Configure PostgreSQL database users
+  ansible.builtin.import_tasks: database_users.yml
+  tags:
+    - postgresql
+    - database_users
+
+- name: Verify PostgreSQL deployment
+  ansible.builtin.import_tasks: verify.yml
+  tags:
+    - postgresql
+    - verify

@@ -1,0 +1,33 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Configures PostgreSQL database account credentials.
+# Sets PostgreSQL password encryption and the postgres administrator
+# password using the local peer-authenticated connection.
+
+- name: Validate PostgreSQL administrator password is provided
+  ansible.builtin.assert:
+    that:
+      - postgres_dbuser_password is defined
+      - postgres_dbuser_password | length > 0
+    fail_msg: >-
+      postgres_dbuser_password must be supplied through Ansible Vault
+      or an AWX-protected variable.
+
+- name: Configure PostgreSQL password encryption
+  community.postgresql.postgresql_alter_system:
+    param: password_encryption
+    value: "{{ postgresql_password_encryption }}"
+    login_unix_socket: /var/run/postgresql
+  become: true
+  become_user: postgres
+
+- name: Configure postgres database account password
+  community.postgresql.postgresql_user:
+    name: postgres
+    password: "{{ postgres_dbuser_password }}"
+    role_attr_flags: SUPERUSER
+    login_unix_socket: /var/run/postgresql
+    state: present
+  become: true
+  become_user: postgres
+  no_log: true

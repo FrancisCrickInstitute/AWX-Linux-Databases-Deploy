@@ -1,0 +1,22 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Defines service handlers used by the PostgreSQL role.
+# Reloads systemd and reloads or restarts PostgreSQL only when notified
+# by configuration changes.
+
+- name: Reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  listen: Reload systemd
+
+- name: Reload PostgreSQL
+  ansible.builtin.systemd_service:
+    name: "{{ postgresql_service_name }}"
+    state: reloaded
+  listen: Reload PostgreSQL
+
+- name: Restart PostgreSQL
+  ansible.builtin.systemd_service:
+    name: "{{ postgresql_service_name }}"
+    state: restarted
+  listen: Restart PostgreSQL

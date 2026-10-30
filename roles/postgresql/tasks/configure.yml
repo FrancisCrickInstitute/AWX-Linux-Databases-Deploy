@@ -1,0 +1,41 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Deploys the managed PostgreSQL configuration files.
+# Configures PostgreSQL networking, logging, authentication, and the
+# PostgreSQL 18 data directory using Ansible-managed templates.
+
+- name: Ensure PostgreSQL configuration include directory exists
+  ansible.builtin.file:
+    path: "{{ postgresql_datadir }}/conf.d"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0700"
+
+- name: Ensure PostgreSQL log directory exists
+  ansible.builtin.file:
+    path: "{{ postgresql_datadir }}/pg_log"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0750"
+
+- name: Deploy PostgreSQL configuration
+  ansible.builtin.template:
+    src: postgresql.conf.j2
+    dest: "{{ postgresql_datadir }}/postgresql.conf"
+    owner: postgres
+    group: postgres
+    mode: "0600"
+    backup: true
+  notify: Restart PostgreSQL
+
+- name: Deploy PostgreSQL client authentication configuration
+  ansible.builtin.template:
+    src: pg_hba.conf.j2
+    dest: "{{ postgresql_datadir }}/pg_hba.conf"
+    owner: postgres
+    group: postgres
+    mode: "0600"
+    backup: true
+  notify: Reload PostgreSQL

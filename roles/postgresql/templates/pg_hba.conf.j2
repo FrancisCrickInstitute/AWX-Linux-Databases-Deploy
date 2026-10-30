@@ -1,0 +1,22 @@
+# Created by Adam Spandel, October 2026
+# Purpose: Defines PostgreSQL client authentication rules.
+# Allows local PostgreSQL administration and authenticated access from
+# approved client networks.
+#
+# This file is managed by Ansible. Manual changes may be overwritten.
+
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+
+# Local Unix socket connections
+local   all             all                                     peer
+
+# IPv4 localhost
+host    all             all             127.0.0.1/32            scram-sha-256
+
+# IPv6 localhost
+host    all             all             ::1/128                 scram-sha-256
+
+# Approved client networks
+{% for network in postgresql_client_networks %}
+host    all             all             {{ network }}           {{ postgresql_client_auth_method }}
+{% endfor %}

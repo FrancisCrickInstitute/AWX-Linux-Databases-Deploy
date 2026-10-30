@@ -1,0 +1,122 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Verifies the completed PostgreSQL deployment.
+# Confirms the storage, cluster version, service state, network port,
+# configuration and local database connectivity.
+
+- name: Gather current mount facts
+  ansible.builtin.setup:
+    gather_subset:
+      - mounts
+
+- name: Verify PostgreSQL filesystem is mounted
+  ansible.builtin.assert:
+    that:
+      - >-
+        postgresql_mount
+        in (ansible_facts.mounts | map(attribute='mount') | list)
+    fail_msg: >-
+      PostgreSQL filesystem {{ postgresql_mount }} is not mounted.
+    success_msg: >-
+      PostgreSQL filesystem {{ postgresql_mount }} is mounted.
+
+- name: Read PostgreSQL cluster version
+  ansible.builtin.slurp:
+    src: "{{ postgresql_datadir }}/PG_VERSION"
+  register: postgresql_verified_pg_version
+
+- name: Verify PostgreSQL cluster version
+  ansible.builtin.assert:
+    that:
+      - >-
+        (postgresql_verified_pg_version.content |
+         b64decode |
+         trim) == (postgresql_major_version | string)
+    fail_msg: >-
+      PostgreSQL cluster version does not match the requested version
+      {{ postgresql_major_version }}.
+    success_msg: >-
+      PostgreSQL {{ postgresql_major_version }} cluster verified.
+
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+- name: Verify PostgreSQL service is running
+  ansible.builtin.assert:
+    that:
+      - >-
+        ansible_facts.services[postgresql_service_name + '.service']
+        is defined
+      - >-
+        ansible_facts.services[postgresql_service_name + '.service'].state
+        == 'running'
+      - >-
+        ansible_facts.services[postgresql_service_name + '.service'].status
+        == 'enabled'
+    fail_msg: >-
+      PostgreSQL service {{ postgresql_service_name }} is not both
+      enabled and running.
+    success_msg: >-
+      PostgreSQL service {{ postgresql_service_name }} is enabled
+      and running.
+
+- name: Wait for PostgreSQL port
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ postgresql_port }}"
+    state: started
+    timeout: 30
+
+- name: Check PostgreSQL server readiness
+  ansible.builtin.command:
+    argv:
+      - "{{ postgresql_bin_path }}/pg_isready"
+      - "--host=/var/run/postgresql"
+      - "--port={{ postgresql_port }}"
+      - "--username=postgres"
+  become: true
+  become_user: postgres
+  register: postgresql_readiness
+  changed_when: false
+
+- name: Verify local PostgreSQL query
+  community.postgresql.postgresql_query:
+    login_db: postgres
+    login_user: postgres
+    login_unix_socket: /var/run/postgresql
+    query: "SELECT current_setting('server_version_num')::integer AS version_num"
+  become: true
+  become_user: postgres
+  register: postgresql_version_query
+  changed_when: false
+
+- name: Verify PostgreSQL 18 server response
+  ansible.builtin.assert:
+    that:
+      - postgresql_version_query.query_result | length == 1
+      - postgresql_version_query.query_result[0].version_num | int >= 180000
+      - postgresql_version_query.query_result[0].version_num | int < 190000
+    fail_msg: >-
+      The running PostgreSQL server did not report a PostgreSQL 18
+      server version.
+    success_msg: "The running PostgreSQL 18 server responded successfully."
+
+- name: Verify PostgreSQL data checksums
+  ansible.builtin.command:
+    argv:
+      - "{{ postgresql_bin_path }}/pg_controldata"
+      - "{{ postgresql_datadir }}"
+  become: true
+  become_user: postgres
+  register: postgresql_control_data
+  changed_when: false
+
+- name: Confirm PostgreSQL data checksums are enabled
+  ansible.builtin.assert:
+    that:
+      - >-
+        'Data page checksum version:           1'
+        in postgresql_control_data.stdout
+    fail_msg: >-
+      PostgreSQL data page checksums are not enabled.
+    success_msg: "PostgreSQL data page checksums are enabled."

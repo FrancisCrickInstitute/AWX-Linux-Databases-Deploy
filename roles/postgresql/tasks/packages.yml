@@ -1,0 +1,22 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Installs PostgreSQL 18 and the supporting packages required by the role.
+# Uses the versioned PostgreSQL packages provided by the PGDG repository.
+
+- name: Install PostgreSQL and required packages
+  ansible.builtin.dnf:
+    name:
+      - "postgresql{{ postgresql_major_version }}"
+      - "postgresql{{ postgresql_major_version }}-server"
+      - "postgresql{{ postgresql_major_version }}-contrib"
+      - "postgresql{{ postgresql_major_version }}-devel"
+      - "postgresql{{ postgresql_major_version }}-plpython3"
+      - git
+      - libpq
+      - libpq-devel
+      - nfs-utils
+      - python3
+      - python3-devel
+      - python3-pip
+      - python3-psycopg2
+    state: present

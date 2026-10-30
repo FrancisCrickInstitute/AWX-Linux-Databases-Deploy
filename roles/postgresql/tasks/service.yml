@@ -1,0 +1,40 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Configures and starts the PostgreSQL systemd service.
+# Ensures PostgreSQL uses the dedicated /postgres data directory and
+# starts automatically when the server boots.
+
+- name: Create PostgreSQL systemd override directory
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ postgresql_service_name }}.service.d"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure PostgreSQL PGDATA systemd override
+  ansible.builtin.copy:
+    dest: >-
+      /etc/systemd/system/{{ postgresql_service_name }}.service.d/pgdata.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Service]
+      Environment=PGDATA={{ postgresql_datadir }}
+  notify:
+    - Reload systemd
+    - Restart PostgreSQL
+
+- name: Reload systemd configuration
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Enable and start PostgreSQL
+  ansible.builtin.systemd_service:
+    name: "{{ postgresql_service_name }}"
+    enabled: true
+    state: started
+
+- name: Apply pending PostgreSQL configuration handlers
+  ansible.builtin.meta: flush_handlers

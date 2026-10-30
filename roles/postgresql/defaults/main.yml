@@ -1,0 +1,50 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Defines the default configuration values used by the PostgreSQL role.
+# Provides PostgreSQL version, storage, networking, authentication, and DBA access
+# settings that can be overridden where required.
+
+# PostgreSQL version
+postgresql_major_version: "18"
+
+# Runtime state facts
+postgresql_is_mounted: false
+postgresql_is_initialised: false
+postgresql_dba_have_access: false
+
+# Network
+postgresql_port: 5432
+postgresql_listen_addresses: "*"
+
+# Storage
+postgresql_mount: "/postgres"
+postgresql_datadir: "{{ postgresql_mount }}/data"
+
+postgresql_disk: "/dev/sdb"
+postgresql_partition: "/dev/sdb1"
+
+postgresql_volume_group: "vg_db"
+postgresql_logical_volume: "lv_postgres"
+postgresql_filesystem: "xfs"
+
+# Cluster configuration
+postgresql_locale: "en_GB.UTF-8"
+
+# PostgreSQL PGDG layout
+postgresql_bin_path: "/usr/pgsql-{{ postgresql_major_version }}/bin"
+postgresql_service_name: "postgresql-{{ postgresql_major_version }}"
+
+# Authentication
+postgresql_password_encryption: "scram-sha-256"
+postgresql_client_auth_method: "scram-sha-256"
+
+postgresql_client_networks:
+  - "10.0.0.0/8"
+
+# Feature switches
+postgresql_configure_storage: true
+postgresql_configure_firewall: true
+postgresql_configure_dba_access: true
+
+# DBA access
+postgresql_dba_access_group: "DLG_Linux_Server_Database_Admin_Access_Granted@THECRICK.ORG"

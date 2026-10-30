@@ -1,0 +1,84 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Validates that the target server meets the requirements for the PostgreSQL role.
+# Prevents the role from continuing on unsupported systems or with invalid configuration.
+
+- name: Validate supported operating system
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == "Rocky"
+      - ansible_facts.distribution_major_version | int >= 10
+    fail_msg: >-
+      This PostgreSQL role supports Rocky Linux 10 or later.
+      Detected {{ ansible_facts.distribution }}
+      {{ ansible_facts.distribution_version }}.
+    success_msg: >-
+      Supported operating system detected:
+      {{ ansible_facts.distribution }}
+      {{ ansible_facts.distribution_version }}.
+
+- name: Validate supported PostgreSQL major version
+  ansible.builtin.assert:
+    that:
+      - postgresql_major_version | string == "18"
+    fail_msg: >-
+      This PostgreSQL role currently supports PostgreSQL 18 only.
+      Requested version: {{ postgresql_major_version }}.
+    success_msg: "PostgreSQL 18 selected."
+
+- name: Validate PostgreSQL port
+  ansible.builtin.assert:
+    that:
+      - postgresql_port | int > 0
+      - postgresql_port | int <= 65535
+    fail_msg: >-
+      PostgreSQL port {{ postgresql_port }} is invalid.
+      The port must be between 1 and 65535.
+
+- name: Validate PostgreSQL storage variables
+  ansible.builtin.assert:
+    that:
+      - postgresql_mount | length > 1
+      - postgresql_datadir | length > postgresql_mount | length
+      - postgresql_disk is match('^/dev/')
+      - postgresql_partition is match('^/dev/')
+      - postgresql_volume_group | length > 0
+      - postgresql_logical_volume | length > 0
+    fail_msg: "One or more PostgreSQL storage variables are invalid."
+
+- name: Check whether PostgreSQL mount already exists
+  ansible.builtin.set_fact:
+    postgresql_is_mounted: >-
+      {{
+        postgresql_mount
+        in (ansible_facts.mounts | map(attribute='mount') | list)
+      }}
+
+- name: Check existing PostgreSQL cluster
+  ansible.builtin.stat:
+    path: "{{ postgresql_datadir }}/PG_VERSION"
+  register: postgresql_pg_version_file
+
+- name: Record PostgreSQL initialisation state
+  ansible.builtin.set_fact:
+    postgresql_is_initialised: "{{ postgresql_pg_version_file.stat.exists }}"
+
+- name: Read existing PostgreSQL cluster version
+  ansible.builtin.slurp:
+    src: "{{ postgresql_datadir }}/PG_VERSION"
+  register: postgresql_existing_pg_version
+  when: postgresql_is_initialised | bool
+
+- name: Validate existing PostgreSQL cluster version
+  ansible.builtin.assert:
+    that:
+      - >-
+        (postgresql_existing_pg_version.content |
+         b64decode |
+         trim) == (postgresql_major_version | string)
+    fail_msg: >-
+      An existing PostgreSQL cluster was found in
+      {{ postgresql_datadir }}, but it is not PostgreSQL
+      {{ postgresql_major_version }}. Automatic major-version
+      upgrades are intentionally not performed by this role.
+  when: postgresql_is_initialised | bool
