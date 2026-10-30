@@ -1,0 +1,16 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Runs database configuration checks against a Linux database server.
+# Detects supported database services, checks backup configuration, and
+# updates database-related Ansible local facts.
+
+- name: Configure database checks
+  hosts: "{{ vm_name | default('localhost') }}"
+  become: true
+  become_user: root
+  gather_facts: true
+
+  tasks:
+    - name: Apply database configuration checks role
+      ansible.builtin.import_role:
+        name: database_config_checks

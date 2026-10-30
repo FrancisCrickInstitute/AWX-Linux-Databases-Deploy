@@ -1,0 +1,24 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Defines the execution order for the database configuration checks role.
+# Detects running database services, checks backup configuration, and updates
+# database-related Linux local facts.
+
+- name: Detect running database services
+  ansible.builtin.import_tasks: detect_services.yml
+  tags:
+    - database_config_checks
+    - detect_services
+
+- name: Check database backup configuration
+  ansible.builtin.import_tasks: backup_check.yml
+  when: database_config_checks_service_present | bool
+  tags:
+    - database_config_checks
+    - backup_check
+
+- name: Update database local facts
+  ansible.builtin.import_tasks: local_facts.yml
+  tags:
+    - database_config_checks
+    - local_facts

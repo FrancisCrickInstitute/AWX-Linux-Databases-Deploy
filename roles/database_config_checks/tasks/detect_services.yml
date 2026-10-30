@@ -1,0 +1,49 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Detects supported running database services.
+# Checks configured systemd service units and records which database
+# platforms are present and active on the target server.
+
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+- name: Detect running database services
+  ansible.builtin.set_fact:
+    database_config_checks_services: >-
+      {{
+        database_config_checks_services
+        | combine({
+            item.key: (
+              item.value
+              | select('in', database_config_checks_running_service_units)
+              | list
+              | length > 0
+            )
+          })
+      }}
+  vars:
+    database_config_checks_running_service_units: >-
+      {{
+        ansible_facts.services
+        | dict2items
+        | selectattr('value.state', 'equalto', 'running')
+        | map(attribute='key')
+        | list
+      }}
+  loop: "{{ database_config_checks_service_units | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Record whether a supported database service is running
+  ansible.builtin.set_fact:
+    database_config_checks_service_present: >-
+      {{
+        database_config_checks_services.values()
+        | select('equalto', true)
+        | list
+        | length > 0
+      }}
+
+- name: Display detected database services
+  ansible.builtin.debug:
+    var: database_config_checks_services

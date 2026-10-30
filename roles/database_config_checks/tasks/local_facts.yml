@@ -1,0 +1,78 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Updates database-related Linux local facts.
+# Preserves existing facts and adds the detected database service states
+# and Rubrik backup-script status.
+
+- name: Ensure Ansible local facts directory exists
+  ansible.builtin.file:
+    path: "{{ database_config_checks_facts_directory }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Check existing local facts file
+  ansible.builtin.stat:
+    path: "{{ database_config_checks_facts_file }}"
+  register: database_config_checks_facts_file_status
+
+- name: Read existing local facts
+  ansible.builtin.slurp:
+    src: "{{ database_config_checks_facts_file }}"
+  register: database_config_checks_existing_facts_raw
+  when: database_config_checks_facts_file_status.stat.exists
+
+- name: Decode existing local facts
+  ansible.builtin.set_fact:
+    database_config_checks_existing_facts: >-
+      {{
+        (
+          database_config_checks_existing_facts_raw.content
+          | b64decode
+          | from_json
+        )
+        if database_config_checks_facts_file_status.stat.exists
+        else {}
+      }}
+
+- name: Build database local facts
+  ansible.builtin.set_fact:
+    database_config_checks_new_facts: >-
+      {{
+        database_config_checks_services
+        | combine({
+            'backupScriptPresent':
+              database_config_checks_backup_script_present
+              | default(false)
+          })
+      }}
+
+- name: Merge database facts with existing local facts
+  ansible.builtin.set_fact:
+    database_config_checks_combined_facts: >-
+      {{
+        database_config_checks_existing_facts
+        | combine(database_config_checks_new_facts)
+      }}
+
+- name: Save database local facts
+  ansible.builtin.copy:
+    content: >-
+      {{
+        database_config_checks_combined_facts
+        | to_nice_json
+      }}
+    dest: "{{ database_config_checks_facts_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Refresh Ansible local facts
+  ansible.builtin.setup:
+    filter:
+      - ansible_local
+
+- name: Display database local facts
+  ansible.builtin.debug:
+    var: ansible_local.tags

@@ -1,0 +1,50 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Defines default values used by the database configuration checks role.
+# Provides database service detection, backup-script and local-fact settings
+# that can be reused across supported database platforms.
+
+# Database service state
+database_config_checks_service_present: false
+
+database_config_checks_services:
+  mariadb: false
+  mysql: false
+  postgresql: false
+  neo4j: false
+
+# Database service unit names
+database_config_checks_service_units:
+  mariadb:
+    - mariadb.service
+
+  mysql:
+    - mysqld.service
+
+  postgresql:
+    - postgresql.service
+    - postgresql-10.service
+    - postgresql-13.service
+    - postgresql-14.service
+    - postgresql-15.service
+    - postgresql-16.service
+    - postgresql-18.service
+
+  neo4j:
+    - neo4j.service
+
+# Database backup users
+database_config_checks_backup_users:
+  mariadb: DDMySQL
+  mysql: DDMySQL
+  postgresql: DDpostgres
+  neo4j: DDneo4j
+
+# Backup script
+database_config_checks_backup_script_relative_path: >-
+  python_backup_rubrik/backup_rubrik.py
+
+# Local facts
+database_config_checks_facts_directory: "/etc/ansible/facts.d"
+database_config_checks_facts_file: >-
+  {{ database_config_checks_facts_directory }}/tags.fact

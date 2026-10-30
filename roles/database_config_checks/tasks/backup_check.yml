@@ -1,0 +1,42 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Checks whether the expected Rubrik backup script is present.
+# Selects the appropriate backup account for the detected database service
+# and records whether the database backup script exists.
+
+- name: Determine database backup user
+  ansible.builtin.set_fact:
+    database_config_checks_backup_user: >-
+      {{ database_config_checks_backup_users[item.key] }}
+  when: item.value | bool
+  loop: "{{ database_config_checks_services | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Build database backup script path
+  ansible.builtin.set_fact:
+    database_config_checks_backup_script: >-
+      /home/{{ database_config_checks_backup_user }}/{{ database_config_checks_backup_script_relative_path }}
+
+- name: Check database backup script
+  ansible.builtin.stat:
+    path: "{{ database_config_checks_backup_script }}"
+  register: database_config_checks_backup_script_status
+
+- name: Record database backup script status
+  ansible.builtin.set_fact:
+    database_config_checks_backup_script_present: >-
+      {{
+        database_config_checks_backup_script_status.stat.exists
+        and
+        database_config_checks_backup_script_status.stat.isreg
+      }}
+
+- name: Display database backup script status
+  ansible.builtin.debug:
+    msg:
+      - "Backup user: {{ database_config_checks_backup_user }}"
+      - "Backup script: {{ database_config_checks_backup_script }}"
+      - >-
+        Backup script present:
+        {{ database_config_checks_backup_script_present }}
