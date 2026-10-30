@@ -13,9 +13,32 @@
       client_id: "{{ rubrik_db_backup_service_account_id }}"
       client_secret: "{{ rubrik_db_backup_service_account_secret }}"
     return_content: true
-    status_code: 200
+    status_code:
+      - 200
+      - 201
+      - 400
+      - 401
+      - 403
   register: rubrik_db_backup_token_response
+  failed_when: false
   no_log: true
+
+- name: Validate Rubrik API authentication
+  ansible.builtin.assert:
+    that:
+      - rubrik_db_backup_token_response.status | int in [200, 201]
+      - rubrik_db_backup_token_response.json is defined
+      - rubrik_db_backup_token_response.json.access_token is defined
+      - rubrik_db_backup_token_response.json.access_token | length > 0
+    fail_msg: >-
+      Rubrik API authentication failed.
+      HTTP status: {{
+        rubrik_db_backup_token_response.status | default('unavailable')
+      }}.
+      Connection message: {{
+        rubrik_db_backup_token_response.msg | default('not supplied')
+      }}.
+    success_msg: "Rubrik API authentication succeeded."
 
 - name: Record Rubrik API bearer token
   ansible.builtin.set_fact:
