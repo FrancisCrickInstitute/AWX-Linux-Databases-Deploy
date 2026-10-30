@@ -1,0 +1,31 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Determines the VMware environment and datastore for PostgreSQL storage.
+# Preserves the existing DEV/TEST and Production datastore selection used by
+# the legacy PostgreSQL deployment.
+
+- name: Determine PostgreSQL VMware environment
+  ansible.builtin.set_fact:
+    postgresql_vm_environment: "{{ item.environment }}"
+    postgresql_vcenter_datastore: "{{ item.datastore }}"
+  when: ansible_hostname is match(item.pattern)
+  loop:
+    - pattern: '^clvd0-[a-z][a-z]-[a-z]-(d|t)'
+      environment: Staging
+      datastore: Pure-Dev-DSC
+
+    - pattern: '^clvd1-[a-z][a-z]-[a-z]-(d|p|t).*'
+      environment: Production
+      datastore: Pure-Prod-DSC
+
+- name: Validate PostgreSQL VMware environment
+  ansible.builtin.assert:
+    that:
+      - postgresql_vm_environment is defined
+      - postgresql_vcenter_datastore is defined
+    fail_msg: >-
+      Unable to determine the VMware environment and datastore from hostname
+      {{ ansible_hostname }}.
+    success_msg: >-
+      VMware environment {{ postgresql_vm_environment }} selected with
+      datastore {{ postgresql_vcenter_datastore }}.

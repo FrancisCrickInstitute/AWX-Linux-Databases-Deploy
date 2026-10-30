@@ -9,6 +9,11 @@
   become_user: root
   gather_facts: true
 
+  vars_files:
+    - ../vars/common.yml
+    - ../vars/vault.yml
+    - ../vars/postgresql_vault.yml
+
   tasks:
     - name: Apply PostgreSQL role
       ansible.builtin.import_role:

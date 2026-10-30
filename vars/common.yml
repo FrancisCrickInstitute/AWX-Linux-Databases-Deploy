@@ -1,0 +1,9 @@
+---
+# Created by Adam Spandel, October 2026
+# Purpose: Defines shared infrastructure configuration used by database deployment playbooks.
+# Contains non-sensitive settings that can be reused by PostgreSQL and future database roles.
+
+# VMware configuration
+vcenter_hostname: "clvd1-vc-w-p-02.thecrick.org"
+vcenter_datacenter: "NetApp-HCI-Datacenter-01"
+vcenter_user: "svc-ansible-usr@vsphere.local"

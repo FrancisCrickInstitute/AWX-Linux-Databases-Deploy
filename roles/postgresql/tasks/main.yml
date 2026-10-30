@@ -9,6 +9,12 @@
     - postgresql
     - validate
 
+- name: Determine PostgreSQL deployment environment
+  ansible.builtin.import_tasks: environment.yml
+  tags:
+    - postgresql
+    - environment
+
 - name: Configure PostgreSQL repository
   ansible.builtin.import_tasks: repository.yml
   tags:
