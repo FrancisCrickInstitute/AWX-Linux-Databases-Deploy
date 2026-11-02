@@ -1,8 +1,9 @@
 ---
 # Created by Adam Spandel, October 2026
-# Purpose: Creates or locates the Rubrik Managed Volume used for database backups.
-# Authenticates to Rubrik Security Cloud, checks whether the Managed Volume
-# exists, creates it when required, and applies the environment-specific SLA.
+# Purpose: Creates or locates the Rubrik Managed Volume used for database
+# backups. Authenticates to Rubrik Security Cloud, checks whether the
+# Managed Volume exists, creates it when required, and applies the
+# environment-specific SLA.
 
 - name: Probe Rubrik token endpoint
   ansible.builtin.uri:
@@ -22,7 +23,7 @@
       - rubrik_db_backup_token_probe.status | int == 400
     fail_msg: >-
       Rubrik token endpoint probe returned HTTP
-      {{ rubrik_db_backup_token_probe.status | default('unavailable') }}
+      {{ rubrik_db_backup_token_probe.status | default("unavailable") }}
       instead of the expected HTTP 400.
     success_msg: >-
       Rubrik token endpoint is reachable and responded with the expected
@@ -58,11 +59,15 @@
       - rubrik_db_backup_token_response.json.access_token | length > 0
     fail_msg: >-
       Rubrik API authentication failed.
-      HTTP status: {{
-        rubrik_db_backup_token_response.status | default('unavailable')
+      HTTP status:
+      {{
+        rubrik_db_backup_token_response.status
+        | default("unavailable")
       }}.
-      Connection message: {{
-        rubrik_db_backup_token_response.msg | default('not supplied')
+      Connection message:
+      {{
+        rubrik_db_backup_token_response.msg
+        | default("not supplied")
       }}.
     success_msg: "Rubrik API authentication succeeded."
 
@@ -107,10 +112,13 @@
   ansible.builtin.set_fact:
     rubrik_db_backup_mv_id: >-
       {{
-        rubrik_db_backup_mv_search.json.data.managedVolumes.nodes[0].id
+        rubrik_db_backup_mv_search
+        .json.data.managedVolumes.nodes[0].id
       }}
   when:
-    - rubrik_db_backup_mv_search.json.data.managedVolumes.nodes | length > 0
+    - >-
+      rubrik_db_backup_mv_search
+      .json.data.managedVolumes.nodes | length > 0
 
 - name: Create Rubrik Managed Volume
   ansible.builtin.uri:
@@ -157,6 +165,56 @@
   changed_when: false
   no_log: true
 
+- name: Prepare Rubrik Managed Volume creation diagnostic
+  ansible.builtin.set_fact:
+    rubrik_db_backup_mv_create_diagnostic:
+      status: >-
+        {{
+          rubrik_db_backup_mv_create.status
+          | default("unavailable")
+        }}
+      message: >-
+        {{
+          rubrik_db_backup_mv_create.msg
+          | default("not supplied")
+          | replace(
+              rubrik_db_backup_bearer_token,
+              "[REDACTED]"
+            )
+          | replace(
+              rubrik_db_backup_service_account_id,
+              "[REDACTED]"
+            )
+          | replace(
+              rubrik_db_backup_service_account_secret,
+              "[REDACTED]"
+            )
+        }}
+      content: >-
+        {{
+          rubrik_db_backup_mv_create.content
+          | default("not supplied")
+          | replace(
+              rubrik_db_backup_bearer_token,
+              "[REDACTED]"
+            )
+          | replace(
+              rubrik_db_backup_service_account_id,
+              "[REDACTED]"
+            )
+          | replace(
+              rubrik_db_backup_service_account_secret,
+              "[REDACTED]"
+            )
+        }}
+      graphql_errors: >-
+        {{
+          rubrik_db_backup_mv_create.json.errors
+          | default("No GraphQL error details returned")
+        }}
+  when: rubrik_db_backup_mv_id is not defined
+  no_log: true
+
 - name: Validate Rubrik Managed Volume creation
   ansible.builtin.assert:
     that:
@@ -168,12 +226,13 @@
     fail_msg: >-
       Rubrik Managed Volume creation failed.
       HTTP status:
-      {{ rubrik_db_backup_mv_create.status | default("unavailable") }}.
+      {{ rubrik_db_backup_mv_create_diagnostic.status }}.
+      HTTP message:
+      {{ rubrik_db_backup_mv_create_diagnostic.message }}.
       GraphQL errors:
-      {{
-        rubrik_db_backup_mv_create.json.errors
-        | default("No GraphQL error details returned")
-      }}.
+      {{ rubrik_db_backup_mv_create_diagnostic.graphql_errors }}.
+      Response content:
+      {{ rubrik_db_backup_mv_create_diagnostic.content }}.
     success_msg: >-
       Rubrik Managed Volume creation request succeeded.
   when: rubrik_db_backup_mv_id is not defined
@@ -186,6 +245,8 @@
     - rubrik_db_backup_mv_create.status | int == 200
     - rubrik_db_backup_mv_create.json is defined
     - rubrik_db_backup_mv_create.json.errors is not defined
+    - rubrik_db_backup_mv_create.json.data is defined
+    - rubrik_db_backup_mv_create.json.data.addManagedVolume is defined
 
 - name: Retrieve newly created Rubrik Managed Volume
   ansible.builtin.uri:
@@ -216,7 +277,9 @@
     return_content: true
     status_code: 200
   register: rubrik_db_backup_new_mv_search
-  when: rubrik_db_backup_mv_id is not defined
+  when:
+    - rubrik_db_backup_mv_id is not defined
+    - rubrik_db_backup_mv_created | default(false) | bool
   no_log: true
 
 - name: Record newly created Rubrik Managed Volume ID
@@ -228,6 +291,8 @@
       }}
   when:
     - rubrik_db_backup_mv_id is not defined
+    - rubrik_db_backup_mv_created | default(false) | bool
+    - rubrik_db_backup_new_mv_search is defined
     - >-
       rubrik_db_backup_new_mv_search
       .json.data.managedVolumes.nodes | length > 0
@@ -269,6 +334,6 @@
             configuredSlaDomainId: "{{ rubrik_db_backup_sla_id }}"
     return_content: true
     status_code: 200
-  when: rubrik_db_backup_mv_created | bool
+  when: rubrik_db_backup_mv_created | default(false) | bool
   changed_when: true
   no_log: true
