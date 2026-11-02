@@ -8,7 +8,7 @@
     src: sssd.conf.j2
     dest: "{{ linux_domain_join_sssd_config_path }}"
     owner: root
-    group: root
+    group: sssd
     mode: "{{ linux_domain_join_sssd_config_mode }}"
   notify: Restart SSSD
 

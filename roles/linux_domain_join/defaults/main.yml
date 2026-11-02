@@ -43,4 +43,4 @@ linux_domain_join_cache_credentials: true
 linux_domain_join_krb5_store_password_if_offline: true
 
 linux_domain_join_sssd_config_path: "/etc/sssd/sssd.conf"
-linux_domain_join_sssd_config_mode: "0600"
+linux_domain_join_sssd_config_mode: "0640"

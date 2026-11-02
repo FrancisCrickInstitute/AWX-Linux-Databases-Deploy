@@ -16,7 +16,9 @@
   loop_control:
     label: "{{ item }}"
   when:
-    - item not in linux_domain_join_access_before.stdout
+    - >-
+      item | lower
+      not in linux_domain_join_access_before.stdout | lower
   register: linux_domain_join_permit_results
   changed_when:
     - linux_domain_join_permit_results.rc == 0
@@ -34,7 +36,9 @@
 - name: Validate required Active Directory groups are permitted
   ansible.builtin.assert:
     that:
-      - item in linux_domain_join_access_after.stdout
+      - >-
+        item | lower
+        in linux_domain_join_access_after.stdout | lower
     fail_msg: >-
       Required Active Directory group {{ item }}
       is not permitted on {{ inventory_hostname }}.
