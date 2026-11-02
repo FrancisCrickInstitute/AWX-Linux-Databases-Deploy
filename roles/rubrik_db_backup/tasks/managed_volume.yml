@@ -32,10 +32,11 @@
   ansible.builtin.uri:
     url: "{{ rubrik_db_backup_api_url }}/client_token"
     method: POST
-    body_format: json
+    body_format: form-urlencoded
     body:
       client_id: "{{ rubrik_db_backup_service_account_id }}"
       client_secret: "{{ rubrik_db_backup_service_account_secret }}"
+      grant_type: client_credentials
     return_content: true
     status_code:
       - 200
@@ -43,6 +44,7 @@
       - 400
       - 401
       - 403
+      - 404
   register: rubrik_db_backup_token_response
   failed_when: false
   no_log: true
