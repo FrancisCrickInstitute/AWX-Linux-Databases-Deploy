@@ -14,7 +14,7 @@ realmd_tags = manages-system joined-with-adcli
 
 cache_credentials = {{ linux_domain_join_cache_credentials | string | lower }}
 id_provider = ad
-access_provider = ad
+access_provider = simple
 chpass_provider = ad
 
 krb5_store_password_if_offline = {{ linux_domain_join_krb5_store_password_if_offline | string | lower }}
@@ -27,3 +27,5 @@ use_fully_qualified_names = {{ linux_domain_join_use_fully_qualified_names | str
 ldap_id_mapping = {{ linux_domain_join_ldap_id_mapping | string | lower }}
 ldap_user_uid_number = uidNumber
 ldap_user_gid_number = gidNumber
+
+simple_allow_groups = {{ linux_domain_join_permitted_groups | join(', ') }}

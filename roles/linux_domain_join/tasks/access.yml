@@ -1,44 +1,34 @@
 ---
 # Created by Adam Spandel, November 2026
-# Purpose: Configures Active Directory access permissions for
-# Rocky Linux database servers.
+# Purpose: Validates the Active Directory access policy applied
+# to Rocky Linux database servers through SSSD.
 
-- name: Read current Active Directory access configuration
+- name: Read Active Directory access configuration
   ansible.builtin.command:
     cmd: realm list
-  register: linux_domain_join_access_before
+  register: linux_domain_join_access
   changed_when: false
 
-- name: Permit required Active Directory groups
-  ansible.builtin.command:
-    cmd: "realm permit -g {{ item }}"
-  loop: "{{ linux_domain_join_permitted_groups }}"
-  loop_control:
-    label: "{{ item }}"
-  when:
-    - >-
-      item | lower
-      not in linux_domain_join_access_before.stdout | lower
-  register: linux_domain_join_permit_results
-  changed_when:
-    - linux_domain_join_permit_results.rc == 0
-  notify: Restart SSSD
-
-- name: Apply pending SSSD access changes
-  ansible.builtin.meta: flush_handlers
-
-- name: Read resulting Active Directory access configuration
-  ansible.builtin.command:
-    cmd: realm list
-  register: linux_domain_join_access_after
-  changed_when: false
+- name: Validate Active Directory login policy
+  ansible.builtin.assert:
+    that:
+      - >-
+        "allow-permitted-logins"
+        in linux_domain_join_access.stdout
+    fail_msg: >-
+      Active Directory permitted-login policy is not active on
+      {{ inventory_hostname }}.
+    success_msg: >-
+      Active Directory permitted-login policy is active on
+      {{ inventory_hostname }}.
 
 - name: Validate required Active Directory groups are permitted
   ansible.builtin.assert:
     that:
       - >-
-        item | lower
-        in linux_domain_join_access_after.stdout | lower
+        (item | lower)
+        in
+        (linux_domain_join_access.stdout | lower)
     fail_msg: >-
       Required Active Directory group {{ item }}
       is not permitted on {{ inventory_hostname }}.
