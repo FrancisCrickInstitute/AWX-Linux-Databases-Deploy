@@ -40,6 +40,8 @@ rubrik_db_backup_repo_name: "python_backup_rubrik"
 rubrik_db_backup_repo_address: >-
   git@github.com:FrancisCrickInstitute/python_backup_rubrik.git
 
+rubrik_db_backup_repo_version: "master"
+
 rubrik_db_backup_config_file: "config_backup.py"
 rubrik_db_backup_script: "backup_rubrik.py"
 

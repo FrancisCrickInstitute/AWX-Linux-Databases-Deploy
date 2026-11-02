@@ -28,7 +28,7 @@
       ansible.builtin.git:
         repo: "{{ rubrik_db_backup_repo_address }}"
         dest: "{{ rubrik_db_backup_repo_path }}"
-        version: main
+        version: "{{ rubrik_db_backup_repo_version }}"
         key_file: /root/.ssh/rubrik_backup_deployment.key
         accept_hostkey: true
         clone: true
