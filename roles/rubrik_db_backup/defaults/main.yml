@@ -36,11 +36,11 @@ rubrik_db_backup_mountpoint: >-
 rubrik_db_backup_volume_size: 10737418240
 
 # Backup repository
-rubrik_db_backup_repo_name: "python_backup_rubrik"
+rubrik_db_backup_repo_name: "AWX-Linux-Database-Backup"
 rubrik_db_backup_repo_address: >-
-  git@github.com:FrancisCrickInstitute/python_backup_rubrik.git
+  git@github.com:FrancisCrickInstitute/AWX-Linux-Database-Backup.git
 
-rubrik_db_backup_repo_version: "master"
+rubrik_db_backup_repo_version: "main"
 
 rubrik_db_backup_config_file: "config_backup.py"
 rubrik_db_backup_script: "backup_rubrik.py"
