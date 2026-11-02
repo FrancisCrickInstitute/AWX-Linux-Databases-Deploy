@@ -1,8 +1,8 @@
 ---
 # Created by Adam Spandel, October 2026
-# Purpose: Configures PostgreSQL permissions required by the Rubrik backup account.
-# Creates the DDpostgres database role through the local PostgreSQL 18 socket
-# and applies the permissions used by the existing backup process.
+# Purpose: Configures PostgreSQL permissions required by the Rubrik backup
+# account. Creates the DDpostgres database role through the local PostgreSQL
+# socket and applies the permissions required by the existing backup process.
 
 - name: Ensure PostgreSQL backup database role exists
   community.postgresql.postgresql_user:
@@ -25,7 +25,6 @@
       - postgres
     target_roles:
       - "{{ rubrik_db_backup_user }}"
-    grant_option: true
     login_db: postgres
     login_user: postgres
     login_unix_socket: /var/run/postgresql
