@@ -1,0 +1,29 @@
+#
+# Managed by Ansible.
+# Manual changes will be overwritten.
+#
+
+data_server = "{{ rubrik_db_backup_data_server }}"
+
+backup_folder = "{{ rubrik_db_backup_mountpoint }}/"
+
+node_ip = "{{ rubrik_db_backup_host }}"
+
+# Legacy Rubrik configuration values retained for compatibility.
+# The rebuilt RSC integration uses RSC_USER and RSC_SECRET below.
+SRV_USER = "srv username"
+SRV_SECRET = "srv secret"
+
+username = "rubrik username"
+password = "rubrik password"
+
+managed_volume_name = "{{ rubrik_db_backup_mv_name }}"
+
+emailfrom = "{{ rubrik_db_backup_email }}"
+emailto = "{{ rubrik_db_backup_email }}"
+
+to_omit = []
+to_include = []
+
+RSC_USER = "{{ rubrik_db_backup_rsc_user | trim }}"
+RSC_SECRET = "{{ rubrik_db_backup_rsc_secret | trim }}"
