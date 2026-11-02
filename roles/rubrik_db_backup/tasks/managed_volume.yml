@@ -151,18 +151,41 @@
               hostPatterns:
                 - "{{ ansible_default_ipv4.address }}"
     return_content: true
-    status_code: 200
   register: rubrik_db_backup_mv_create
   when: rubrik_db_backup_mv_id is not defined
-  changed_when: true
+  failed_when: false
+  changed_when: false
   no_log: true
+
+- name: Validate Rubrik Managed Volume creation
+  ansible.builtin.assert:
+    that:
+      - rubrik_db_backup_mv_create.status | int == 200
+      - rubrik_db_backup_mv_create.json is defined
+      - rubrik_db_backup_mv_create.json.errors is not defined
+      - rubrik_db_backup_mv_create.json.data is defined
+      - rubrik_db_backup_mv_create.json.data.addManagedVolume is defined
+    fail_msg: >-
+      Rubrik Managed Volume creation failed.
+      HTTP status:
+      {{ rubrik_db_backup_mv_create.status | default("unavailable") }}.
+      GraphQL errors:
+      {{
+        rubrik_db_backup_mv_create.json.errors
+        | default("No GraphQL error details returned")
+      }}.
+    success_msg: >-
+      Rubrik Managed Volume creation request succeeded.
+  when: rubrik_db_backup_mv_id is not defined
 
 - name: Record Rubrik Managed Volume creation
   ansible.builtin.set_fact:
     rubrik_db_backup_mv_created: true
   when:
     - rubrik_db_backup_mv_id is not defined
-    - rubrik_db_backup_mv_create is succeeded
+    - rubrik_db_backup_mv_create.status | int == 200
+    - rubrik_db_backup_mv_create.json is defined
+    - rubrik_db_backup_mv_create.json.errors is not defined
 
 - name: Retrieve newly created Rubrik Managed Volume
   ansible.builtin.uri:
