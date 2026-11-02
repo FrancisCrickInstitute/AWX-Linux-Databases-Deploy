@@ -76,3 +76,18 @@
 - name: Grant Splunk read access to Rubrik backup repository
   ansible.posix.acl:
     path: "{{ rubrik_db_backup_repo_path }}"
+
+- name: Protect Rubrik backup configuration permissions
+  ansible.builtin.file:
+    path: "{{ rubrik_db_backup_config_path }}"
+    owner: "{{ rubrik_db_backup_user }}"
+    group: "{{ rubrik_db_backup_user }}"
+    mode: "0600"
+    state: file
+
+- name: Remove Splunk ACL from Rubrik backup configuration
+  ansible.posix.acl:
+    path: "{{ rubrik_db_backup_config_path }}"
+    entity: splunk
+    etype: user
+    state: absent
