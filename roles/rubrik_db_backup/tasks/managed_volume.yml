@@ -120,6 +120,19 @@
       rubrik_db_backup_mv_search
       .json.data.managedVolumes.nodes | length > 0
 
+- name: Build Rubrik Managed Volume configuration
+  ansible.builtin.set_fact:
+    rubrik_db_backup_mv_config:
+      name: "{{ rubrik_db_backup_mv_name }}"
+      applicationTag: "{{ rubrik_db_backup_application_tag }}"
+      numChannels: 1
+      volumeSize: 10737418240
+      exportConfig:
+        shareType: MANAGED_VOLUME_SHARE_TYPE_NFS
+        managedVolumePatchConfig:
+          hostPatterns:
+            - "{{ ansible_default_ipv4.address }}"
+
 - name: Create Rubrik Managed Volume
   ansible.builtin.uri:
     url: "{{ rubrik_db_backup_api_url }}/graphql"
@@ -148,16 +161,7 @@
           }
         }
       variables:
-        mv_config:
-          name: "{{ rubrik_db_backup_mv_name }}"
-          applicationTag: "{{ rubrik_db_backup_application_tag }}"
-          numChannels: 1
-          volumeSize: "{{ rubrik_db_backup_volume_size | int }}"
-          exportConfig:
-            shareType: MANAGED_VOLUME_SHARE_TYPE_NFS
-            managedVolumePatchConfig:
-              hostPatterns:
-                - "{{ ansible_default_ipv4.address }}"
+        mv_config: "{{ rubrik_db_backup_mv_config }}"
     return_content: true
   register: rubrik_db_backup_mv_create
   when: rubrik_db_backup_mv_id is not defined
