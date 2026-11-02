@@ -1,0 +1,79 @@
+---
+# Created by Adam Spandel, November 2026
+# Purpose: Verifies Active Directory domain membership, SSSD health
+# and required database-server AD group resolution.
+
+- name: Read final Active Directory realm configuration
+  ansible.builtin.command:
+    cmd: realm list
+  register: linux_domain_join_verify_realm
+  changed_when: false
+
+- name: Validate Active Directory domain membership
+  ansible.builtin.assert:
+    that:
+      - >-
+        linux_domain_join_domain
+        in linux_domain_join_verify_realm.stdout
+    fail_msg: >-
+      {{ inventory_hostname }} is not joined to
+      {{ linux_domain_join_domain }}.
+    success_msg: >-
+      {{ inventory_hostname }} is joined to
+      {{ linux_domain_join_domain }}.
+
+- name: Gather service facts for Active Directory integration
+  ansible.builtin.service_facts:
+
+- name: Validate SSSD service
+  ansible.builtin.assert:
+    that:
+      - "'sssd.service' in ansible_facts.services"
+      - ansible_facts.services["sssd.service"].state == "running"
+      - ansible_facts.services["sssd.service"].status == "enabled"
+    fail_msg: >-
+      SSSD is not running and enabled on
+      {{ inventory_hostname }}.
+    success_msg: >-
+      SSSD is running and enabled on
+      {{ inventory_hostname }}.
+
+- name: Resolve required Active Directory groups
+  ansible.builtin.command:
+    cmd: "getent group {{ item }}"
+  loop: "{{ linux_domain_join_permitted_groups }}"
+  loop_control:
+    label: "{{ item }}"
+  register: linux_domain_join_group_resolution
+  changed_when: false
+
+- name: Validate required Active Directory group resolution
+  ansible.builtin.assert:
+    that:
+      - item.rc == 0
+      - item.stdout | length > 0
+    fail_msg: >-
+      Active Directory group {{ item.item }}
+      could not be resolved through SSSD on
+      {{ inventory_hostname }}.
+    success_msg: >-
+      Active Directory group {{ item.item }}
+      resolves successfully through SSSD.
+    quiet: true
+  loop: "{{ linux_domain_join_group_resolution.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Check Active Directory machine keytab
+  ansible.builtin.stat:
+    path: /etc/krb5.keytab
+  register: linux_domain_join_keytab
+
+- name: Validate Active Directory machine keytab
+  ansible.builtin.assert:
+    that:
+      - linux_domain_join_keytab.stat.exists
+      - linux_domain_join_keytab.stat.isreg
+      - linux_domain_join_keytab.stat.size | int > 0
+    fail_msg: >-
+      Active Directory machine 

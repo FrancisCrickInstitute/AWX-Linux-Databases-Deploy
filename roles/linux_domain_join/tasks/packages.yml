@@ -1,0 +1,15 @@
+---
+# Created by Adam Spandel, November 2026
+# Purpose: Installs the Rocky Linux packages required for Active Directory
+# integration using realmd, adcli and SSSD.
+
+- name: Install Active Directory integration packages
+  ansible.builtin.dnf:
+    name: "{{ linux_domain_join_packages }}"
+    state: present
+
+- name: Ensure oddjobd is enabled and running
+  ansible.builtin.systemd:
+    name: oddjobd
+    enabled: true
+    state: started

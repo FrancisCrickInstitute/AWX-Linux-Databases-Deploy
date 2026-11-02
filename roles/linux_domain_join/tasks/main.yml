@@ -1,0 +1,22 @@
+---
+# Created by Adam Spandel, November 2026
+# Purpose: Coordinates Active Directory domain integration for
+# Rocky Linux database servers.
+
+- name: Validate Linux domain join configuration
+  ansible.builtin.import_tasks: validate.yml
+
+- name: Install Linux domain integration packages
+  ansible.builtin.import_tasks: packages.yml
+
+- name: Join Linux database server to Active Directory
+  ansible.builtin.import_tasks: join.yml
+
+- name: Configure SSSD
+  ansible.builtin.import_tasks: configure.yml
+
+- name: Configure Active Directory access
+  ansible.builtin.import_tasks: access.yml
+
+- name: Verify Active Directory integration
+  ansible.builtin.import_tasks: verify.yml

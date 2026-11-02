@@ -1,0 +1,27 @@
+---
+# Created by Adam Spandel, November 2026
+# Purpose: Configures SSSD for Active Directory authentication
+# on Rocky Linux database servers.
+
+- name: Deploy SSSD Active Directory configuration
+  ansible.builtin.template:
+    src: sssd.conf.j2
+    dest: "{{ linux_domain_join_sssd_config_path }}"
+    owner: root
+    group: root
+    mode: "{{ linux_domain_join_sssd_config_mode }}"
+  notify: Restart SSSD
+
+- name: Ensure SSSD is enabled
+  ansible.builtin.systemd:
+    name: sssd
+    enabled: true
+
+- name: Apply pending SSSD configuration changes
+  ansible.builtin.meta: flush_handlers
+
+- name: Ensure SSSD is running
+  ansible.builtin.systemd:
+    name: sssd
+    state: started
+    enabled: true

@@ -1,0 +1,47 @@
+---
+# Created by Adam Spandel, November 2026
+# Purpose: Configures Active Directory access permissions for
+# Rocky Linux database servers.
+
+- name: Read current Active Directory access configuration
+  ansible.builtin.command:
+    cmd: realm list
+  register: linux_domain_join_access_before
+  changed_when: false
+
+- name: Permit required Active Directory groups
+  ansible.builtin.command:
+    cmd: "realm permit -g {{ item }}"
+  loop: "{{ linux_domain_join_permitted_groups }}"
+  loop_control:
+    label: "{{ item }}"
+  when:
+    - item not in linux_domain_join_access_before.stdout
+  register: linux_domain_join_permit_results
+  changed_when:
+    - linux_domain_join_permit_results.rc == 0
+  notify: Restart SSSD
+
+- name: Apply pending SSSD access changes
+  ansible.builtin.meta: flush_handlers
+
+- name: Read resulting Active Directory access configuration
+  ansible.builtin.command:
+    cmd: realm list
+  register: linux_domain_join_access_after
+  changed_when: false
+
+- name: Validate required Active Directory groups are permitted
+  ansible.builtin.assert:
+    that:
+      - item in linux_domain_join_access_after.stdout
+    fail_msg: >-
+      Required Active Directory group {{ item }}
+      is not permitted on {{ inventory_hostname }}.
+    success_msg: >-
+      Active Directory group {{ item }}
+      is permitted on {{ inventory_hostname }}.
+    quiet: true
+  loop: "{{ linux_domain_join_permitted_groups }}"
+  loop_control:
+    label: "{{ item }}"

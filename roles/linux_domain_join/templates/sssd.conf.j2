@@ -1,0 +1,29 @@
+# Ansible managed
+# Active Directory integration for Rocky Linux database servers.
+
+[sssd]
+domains = {{ linux_domain_join_domain }}
+config_file_version = 2
+services = nss, pam
+
+[domain/{{ linux_domain_join_domain }}]
+ad_domain = {{ linux_domain_join_domain }}
+krb5_realm = {{ linux_domain_join_realm }}
+
+realmd_tags = manages-system joined-with-adcli
+
+cache_credentials = {{ linux_domain_join_cache_credentials | string | lower }}
+id_provider = ad
+access_provider = ad
+chpass_provider = ad
+
+krb5_store_password_if_offline = {{ linux_domain_join_krb5_store_password_if_offline | string | lower }}
+
+default_shell = {{ linux_domain_join_default_shell }}
+fallback_homedir = {{ linux_domain_join_fallback_homedir }}
+
+use_fully_qualified_names = {{ linux_domain_join_use_fully_qualified_names | string | lower }}
+
+ldap_id_mapping = {{ linux_domain_join_ldap_id_mapping | string | lower }}
+ldap_user_uid_number = uidNumber
+ldap_user_gid_number = gidNumber

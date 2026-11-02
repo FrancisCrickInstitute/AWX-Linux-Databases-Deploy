@@ -1,0 +1,59 @@
+---
+# Created by Adam Spandel, November 2026
+# Purpose: Validates the operating system and Active Directory
+# configuration before joining a Rocky Linux database server to the domain.
+
+- name: Validate supported operating system
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == "Rocky"
+      - ansible_distribution_major_version | int >= 10
+    fail_msg: >-
+      The linux_domain_join role supports Rocky Linux 10 or newer.
+      Detected {{ ansible_distribution }}
+      {{ ansible_distribution_version }}.
+    success_msg: >-
+      Rocky Linux {{ ansible_distribution_version }}
+      is supported for Active Directory integration.
+
+- name: Validate Active Directory configuration
+  ansible.builtin.assert:
+    that:
+      - linux_domain_join_domain | length > 0
+      - linux_domain_join_realm | length > 0
+      - linux_domain_join_computer_ou | length > 0
+      - linux_domain_join_membership_software | length > 0
+      - linux_domain_join_system_admin_group | length > 0
+      - linux_domain_join_database_admin_group | length > 0
+      - linux_domain_join_permitted_groups | length > 0
+    fail_msg: >-
+      One or more required Active Directory configuration values
+      are missing.
+    success_msg: >-
+      Active Directory domain configuration is valid.
+
+- name: Validate Active Directory join credentials
+  ansible.builtin.assert:
+    that:
+      - linux_domain_join_admin_user is defined
+      - linux_domain_join_admin_user | length > 0
+      - linux_domain_join_admin_password is defined
+      - linux_domain_join_admin_password | length > 0
+    fail_msg: >-
+      Active Directory join credentials are missing.
+      Supply linux_domain_join_admin_user and
+      linux_domain_join_admin_password through the encrypted
+      domain-join Vault file.
+    success_msg: >-
+      Active Directory join credentials are available.
+  no_log: true
+
+- name: Validate permitted Active Directory groups
+  ansible.builtin.assert:
+    that:
+      - item | length > 0
+      - "'@' in item"
+    fail_msg: >-
+      Invalid Active Directory permitted group configuration.
+    quiet: true
+  loop: "{{ linux_domain_join_permitted_groups }}"
