@@ -42,7 +42,7 @@
         accept_hostkey: true
         clone: true
         update: true
-        force: true
+        force: false
       become: true
       become_user: "{{ rubrik_db_backup_user }}"
       register: rubrik_db_backup_repository_result
@@ -63,15 +63,6 @@
     group: "{{ rubrik_db_backup_user }}"
     mode: "0600"
   no_log: true
-
-- name: Set Rubrik backup repository ownership
-  ansible.builtin.file:
-    path: "{{ rubrik_db_backup_repo_path }}"
-    state: directory
-    owner: "{{ rubrik_db_backup_user }}"
-    group: "{{ rubrik_db_backup_user }}"
-    mode: "0700"
-    recurse: true
 
 - name: Grant Splunk read access to Rubrik backup repository
   ansible.posix.acl:
