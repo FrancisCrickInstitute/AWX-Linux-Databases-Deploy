@@ -1,0 +1,15 @@
+---
+# Created by Adam Spandel, November 2026
+# Purpose: Joins a Rocky Linux database server to Active Directory
+# and configures the required SystemAdmin and Database Admin access.
+
+- name: Configure database server Active Directory integration
+  hosts: "{{ vm_name }}"
+  become: true
+  gather_facts: true
+
+  vars_files:
+    - ../vars/linux_domain_join_vault.yml
+
+  roles:
+    - role: linux_domain_join

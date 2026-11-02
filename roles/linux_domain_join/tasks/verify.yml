@@ -76,4 +76,4 @@
       - linux_domain_join_keytab.stat.isreg
       - linux_domain_join_keytab.stat.size | int > 0
     fail_msg: >-
-      Active Directory machine 
+      Active Directory machine
