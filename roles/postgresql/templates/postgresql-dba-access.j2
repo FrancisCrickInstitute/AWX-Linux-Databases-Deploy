@@ -1,0 +1,4 @@
+# Ansible managed
+# Allows the approved Active Directory DBA group to administer PostgreSQL.
+
+%{{ postgresql_dba_access_group }} ALL=({{ postgresql_dba_postgres_account }}) NOPASSWD: ALL

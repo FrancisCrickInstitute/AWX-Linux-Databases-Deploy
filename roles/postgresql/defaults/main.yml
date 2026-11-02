@@ -48,3 +48,13 @@ postgresql_configure_dba_access: true
 
 # DBA access
 postgresql_dba_access_group: "DLG_Linux_Server_Database_Admin_Access_Granted@THECRICK.ORG"
+
+# Active Directory DBA access
+postgresql_dba_access_group: >-
+  DLG_Linux_Server_Database_Admin_Access_Granted@thecrick.org
+
+postgresql_dba_sudoers_path: "/etc/sudoers.d/postgresql-dba-access"
+
+postgresql_dba_postgres_account: "postgres"
+
+postgresql_dba_require_group_resolution: true
