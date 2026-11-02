@@ -90,11 +90,3 @@
     fstype: nfs
     opts: defaults,_netdev
     state: mounted
-
-- name: Ensure Rubrik Managed Volume mount ownership
-  ansible.builtin.file:
-    path: "{{ rubrik_db_backup_mountpoint }}"
-    state: directory
-    owner: "{{ rubrik_db_backup_user }}"
-    group: "{{ rubrik_db_backup_user }}"
-    mode: "0755"
