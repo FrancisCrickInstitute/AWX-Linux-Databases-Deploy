@@ -2,7 +2,7 @@
 # Created by Adam Spandel, October 2026
 # Purpose: Configures PostgreSQL permissions required by the Rubrik backup
 # account. Creates the DDpostgres database role through the local PostgreSQL
-# socket and applies the permissions required by the existing backup process.
+# socket and applies the permissions required by the backup process.
 
 - name: Ensure PostgreSQL backup database role exists
   community.postgresql.postgresql_user:
@@ -31,25 +31,3 @@
     state: present
   become: true
   become_user: postgres
-
-- name: Grant Splunk access to PostgreSQL backup repository
-  ansible.posix.acl:
-    path: "{{ rubrik_db_backup_repo_path }}"
-    entity: splunk
-    etype: user
-    permissions: rX
-    recursive: true
-    state: present
-  when:
-    - "'splunk' in ansible_facts.getent_passwd"
-
-- name: Set default Splunk ACL on PostgreSQL backup repository
-  ansible.posix.acl:
-    path: "{{ rubrik_db_backup_repo_path }}"
-    entity: splunk
-    etype: user
-    permissions: rX
-    default: true
-    state: present
-  when:
-    - "'splunk' in ansible_facts.getent_passwd"
