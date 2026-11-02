@@ -13,7 +13,7 @@ rubrik_db_backup_dd_password: !vault |
           3138
 
 # New Rubrik account
-rubrik_db_backup_service_account_id:: !vault |
+rubrik_db_backup_service_account_id: !vault |
           $ANSIBLE_VAULT;1.1;AES256
           33333665383365316132646661626333336364616339316539316336383631613837343639323733
           3464653865353334356566336264636466323236376263300a343438626231653562306165393230
