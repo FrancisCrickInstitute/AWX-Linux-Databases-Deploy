@@ -4,12 +4,12 @@
 # Temporarily decrypts the Vault-protected GitHub deployment key, uses it
 # to clone or update the backup repository, and removes it afterwards.
 
-- name: Ensure root SSH directory exists
+- name: Ensure Rubrik backup user SSH directory exists
   ansible.builtin.file:
-    path: /root/.ssh
+    path: "/home/{{ rubrik_db_backup_user }}/.ssh"
     state: directory
-    owner: root
-    group: root
+    owner: "{{ rubrik_db_backup_user }}"
+    group: "{{ rubrik_db_backup_user }}"
     mode: "0700"
 
 - name: Deploy Rubrik backup repository
@@ -17,9 +17,9 @@
     - name: Deploy temporary GitHub deployment key
       ansible.builtin.copy:
         src: ansible_github_id_rsa
-        dest: /root/.ssh/rubrik_backup_deployment.key
-        owner: root
-        group: root
+        dest: "/home/{{ rubrik_db_backup_user }}/.ssh/rubrik_backup_deployment.key"
+        owner: "{{ rubrik_db_backup_user }}"
+        group: "{{ rubrik_db_backup_user }}"
         mode: "0600"
         decrypt: true
       no_log: true
@@ -29,17 +29,21 @@
         repo: "{{ rubrik_db_backup_repo_address }}"
         dest: "{{ rubrik_db_backup_repo_path }}"
         version: "{{ rubrik_db_backup_repo_version }}"
-        key_file: /root/.ssh/rubrik_backup_deployment.key
+        key_file: >-
+          /home/{{ rubrik_db_backup_user }}/.ssh/rubrik_backup_deployment.key
         accept_hostkey: true
         clone: true
         update: true
         force: false
+      become: true
+      become_user: "{{ rubrik_db_backup_user }}"
       register: rubrik_db_backup_repository_result
 
   always:
     - name: Remove temporary GitHub deployment key
       ansible.builtin.file:
-        path: /root/.ssh/rubrik_backup_deployment.key
+        path: >-
+          /home/{{ rubrik_db_backup_user }}/.ssh/rubrik_backup_deployment.key
         state: absent
       no_log: true
 
