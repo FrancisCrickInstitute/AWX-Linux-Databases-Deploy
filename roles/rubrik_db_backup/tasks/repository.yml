@@ -12,6 +12,14 @@
     group: "{{ rubrik_db_backup_user }}"
     mode: "0700"
 
+- name: Ensure Rubrik backup user Ansible temporary directory exists
+  ansible.builtin.file:
+    path: "/home/{{ rubrik_db_backup_user }}/.ansible/tmp"
+    state: directory
+    owner: "{{ rubrik_db_backup_user }}"
+    group: "{{ rubrik_db_backup_user }}"
+    mode: "0700"
+
 - name: Deploy Rubrik backup repository
   block:
     - name: Deploy temporary GitHub deployment key
@@ -34,7 +42,7 @@
         accept_hostkey: true
         clone: true
         update: true
-        force: false
+        force: true
       become: true
       become_user: "{{ rubrik_db_backup_user }}"
       register: rubrik_db_backup_repository_result
